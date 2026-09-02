@@ -1,5 +1,6 @@
 let supabaseClient = null;
 let currentAuthUser = null;
+let activeThreadPhone = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
     initTabs();
