@@ -357,13 +357,14 @@ async function handleBooking(request, env) {
   }
 
   // 2. Save to Supabase if configured
-  if (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
+  const sbKey = getSupabaseKey(env);
+  if (env.SUPABASE_URL && sbKey) {
     try {
       await fetch(`${env.SUPABASE_URL}/rest/v1/leads`, {
         method: "POST",
         headers: {
-          "apikey": env.SUPABASE_SERVICE_ROLE_KEY,
-          "Authorization": `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          "apikey": sbKey,
+          "Authorization": `Bearer ${sbKey}`,
           "Content-Type": "application/json",
           "Prefer": "return=minimal"
         },
@@ -389,12 +390,13 @@ async function handleBooking(request, env) {
 }
 
 async function handleCrmStats(env) {
-  if (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
+  const sbKey = getSupabaseKey(env);
+  if (env.SUPABASE_URL && sbKey) {
     try {
       const res = await fetch(`${env.SUPABASE_URL}/rest/v1/leads?select=final_price,status,standby_opt_in`, {
         headers: {
-          "apikey": env.SUPABASE_SERVICE_ROLE_KEY,
-          "Authorization": `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`
+          "apikey": sbKey,
+          "Authorization": `Bearer ${sbKey}`
         }
       });
       if (res.ok) {
@@ -437,12 +439,13 @@ async function handleCrmStats(env) {
 }
 
 async function handleGetJobs(env) {
-  if (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
+  const sbKey = getSupabaseKey(env);
+  if (env.SUPABASE_URL && sbKey) {
     try {
       const res = await fetch(`${env.SUPABASE_URL}/rest/v1/leads?select=*&order=id.desc`, {
         headers: {
-          "apikey": env.SUPABASE_SERVICE_ROLE_KEY,
-          "Authorization": `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`
+          "apikey": sbKey,
+          "Authorization": `Bearer ${sbKey}`
         }
       });
       if (res.ok) return jsonResponse(await res.json());
@@ -455,13 +458,14 @@ async function handleGetJobs(env) {
 
 async function handleCreateJob(request, env) {
   const body = await request.json();
-  if (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
+  const sbKey = getSupabaseKey(env);
+  if (env.SUPABASE_URL && sbKey) {
     try {
       const res = await fetch(`${env.SUPABASE_URL}/rest/v1/leads`, {
         method: "POST",
         headers: {
-          "apikey": env.SUPABASE_SERVICE_ROLE_KEY,
-          "Authorization": `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          "apikey": sbKey,
+          "Authorization": `Bearer ${sbKey}`,
           "Content-Type": "application/json",
           "Prefer": "return=representation"
         },
@@ -479,12 +483,13 @@ async function handleCreateJob(request, env) {
 }
 
 async function handleGetSingleJob(jobId, env) {
-  if (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
+  const sbKey = getSupabaseKey(env);
+  if (env.SUPABASE_URL && sbKey) {
     try {
       const res = await fetch(`${env.SUPABASE_URL}/rest/v1/leads?id=eq.${jobId}&select=*`, {
         headers: {
-          "apikey": env.SUPABASE_SERVICE_ROLE_KEY,
-          "Authorization": `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`
+          "apikey": sbKey,
+          "Authorization": `Bearer ${sbKey}`
         }
       });
       if (res.ok) {
@@ -500,13 +505,14 @@ async function handleGetSingleJob(jobId, env) {
 
 async function handleUpdateJob(jobId, request, env) {
   const updates = await request.json();
-  if (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
+  const sbKey = getSupabaseKey(env);
+  if (env.SUPABASE_URL && sbKey) {
     try {
       await fetch(`${env.SUPABASE_URL}/rest/v1/leads?id=eq.${jobId}`, {
         method: "PATCH",
         headers: {
-          "apikey": env.SUPABASE_SERVICE_ROLE_KEY,
-          "Authorization": `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          "apikey": sbKey,
+          "Authorization": `Bearer ${sbKey}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify(updates)
@@ -521,13 +527,14 @@ async function handleUpdateJob(jobId, request, env) {
 async function handleCompleteJob(jobId, request, env) {
   const body = await request.json();
   const finalPrice = body.final_price || 150;
-  if (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
+  const sbKey = getSupabaseKey(env);
+  if (env.SUPABASE_URL && sbKey) {
     try {
       await fetch(`${env.SUPABASE_URL}/rest/v1/leads?id=eq.${jobId}`, {
         method: "PATCH",
         headers: {
-          "apikey": env.SUPABASE_SERVICE_ROLE_KEY,
-          "Authorization": `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          "apikey": sbKey,
+          "Authorization": `Bearer ${sbKey}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({ status: "completed", final_price: finalPrice })
@@ -540,13 +547,14 @@ async function handleCompleteJob(jobId, request, env) {
 }
 
 async function handleDeleteJob(jobId, env) {
-  if (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
+  const sbKey = getSupabaseKey(env);
+  if (env.SUPABASE_URL && sbKey) {
     try {
       await fetch(`${env.SUPABASE_URL}/rest/v1/leads?id=eq.${jobId}`, {
         method: "DELETE",
         headers: {
-          "apikey": env.SUPABASE_SERVICE_ROLE_KEY,
-          "Authorization": `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`
+          "apikey": sbKey,
+          "Authorization": `Bearer ${sbKey}`
         }
       });
     } catch (e) {
@@ -557,12 +565,13 @@ async function handleDeleteJob(jobId, env) {
 }
 
 async function handleGetCustomers(env) {
-  if (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
+  const sbKey = getSupabaseKey(env);
+  if (env.SUPABASE_URL && sbKey) {
     try {
       const res = await fetch(`${env.SUPABASE_URL}/rest/v1/customers?select=*&order=total_revenue.desc`, {
         headers: {
-          "apikey": env.SUPABASE_SERVICE_ROLE_KEY,
-          "Authorization": `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`
+          "apikey": sbKey,
+          "Authorization": `Bearer ${sbKey}`
         }
       });
       if (res.ok) return jsonResponse(await res.json());
@@ -574,12 +583,13 @@ async function handleGetCustomers(env) {
 }
 
 async function handleGetCustomerJobs(custId, env) {
-  if (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
+  const sbKey = getSupabaseKey(env);
+  if (env.SUPABASE_URL && sbKey) {
     try {
       const res = await fetch(`${env.SUPABASE_URL}/rest/v1/leads?customer_id=eq.${custId}&select=*&order=id.desc`, {
         headers: {
-          "apikey": env.SUPABASE_SERVICE_ROLE_KEY,
-          "Authorization": `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`
+          "apikey": sbKey,
+          "Authorization": `Bearer ${sbKey}`
         }
       });
       if (res.ok) return jsonResponse(await res.json());
@@ -592,13 +602,14 @@ async function handleGetCustomerJobs(custId, env) {
 
 async function handleUpdateCustomer(custId, request, env) {
   const updates = await request.json();
-  if (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
+  const sbKey = getSupabaseKey(env);
+  if (env.SUPABASE_URL && sbKey) {
     try {
       await fetch(`${env.SUPABASE_URL}/rest/v1/customers?id=eq.${custId}`, {
         method: "PATCH",
         headers: {
-          "apikey": env.SUPABASE_SERVICE_ROLE_KEY,
-          "Authorization": `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          "apikey": sbKey,
+          "Authorization": `Bearer ${sbKey}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify(updates)
@@ -622,12 +633,13 @@ async function handleSendReview(request, env) {
 }
 
 async function handleGetB2B(env) {
-  if (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
+  const sbKey = getSupabaseKey(env);
+  if (env.SUPABASE_URL && sbKey) {
     try {
       const res = await fetch(`${env.SUPABASE_URL}/rest/v1/b2b_prospects?select=*&order=id.desc`, {
         headers: {
-          "apikey": env.SUPABASE_SERVICE_ROLE_KEY,
-          "Authorization": `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`
+          "apikey": sbKey,
+          "Authorization": `Bearer ${sbKey}`
         }
       });
       if (res.ok) return jsonResponse(await res.json());
@@ -642,13 +654,14 @@ async function handleGetB2B(env) {
 
 async function handleCreateB2B(request, env) {
   const body = await request.json();
-  if (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
+  const sbKey = getSupabaseKey(env);
+  if (env.SUPABASE_URL && sbKey) {
     try {
       await fetch(`${env.SUPABASE_URL}/rest/v1/b2b_prospects`, {
         method: "POST",
         headers: {
-          "apikey": env.SUPABASE_SERVICE_ROLE_KEY,
-          "Authorization": `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          "apikey": sbKey,
+          "Authorization": `Bearer ${sbKey}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify(body)
@@ -672,6 +685,10 @@ async function handleB2BPitch(request, env) {
 }
 
 // ─── 5. HELPERS ────────────────────────────────────────
+
+function getSupabaseKey(env) {
+  return env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SERVICE_ROLE_KE || "";
+}
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
