@@ -381,6 +381,7 @@ async function handleBooking(request, env) {
   const sbKey = getSupabaseKey(env);
   if (sbUrl && sbKey) {
     try {
+      const customerId = await syncCustomerFromLead(env, body);
       const res = await fetch(`${sbUrl}/rest/v1/leads`, {
         method: "POST",
         headers: {
@@ -390,6 +391,7 @@ async function handleBooking(request, env) {
           "Prefer": "return=minimal"
         },
         body: JSON.stringify({
+          customer_id: customerId,
           name: body.name,
           phone: body.phone,
           zip_code: body.zip_code,
@@ -491,6 +493,10 @@ async function handleCreateJob(request, env) {
   const sbKey = getSupabaseKey(env);
   if (sbUrl && sbKey) {
     try {
+      const customerId = await syncCustomerFromLead(env, body);
+      const leadPayload = { ...body };
+      if (customerId) leadPayload.customer_id = customerId;
+
       const res = await fetch(`${sbUrl}/rest/v1/leads`, {
         method: "POST",
         headers: {
@@ -499,7 +505,7 @@ async function handleCreateJob(request, env) {
           "Content-Type": "application/json",
           "Prefer": "return=representation"
         },
-        body: JSON.stringify(body)
+        body: JSON.stringify(leadPayload)
       });
       if (res.ok) {
         const created = await res.json();
@@ -551,6 +557,18 @@ async function handleUpdateJob(jobId, request, env) {
         },
         body: JSON.stringify(updates)
       });
+
+      if (updates.status === "completed" || updates.final_price !== undefined) {
+        const jobRes = await fetch(`${sbUrl}/rest/v1/leads?id=eq.${jobId}&select=*`, {
+          headers: { "apikey": sbKey, "Authorization": `Bearer ${sbKey}` }
+        });
+        if (jobRes.ok) {
+          const rows = await jobRes.json();
+          if (rows.length > 0) {
+            await syncCustomerFromLead(env, { ...rows[0], ...updates });
+          }
+        }
+      }
     } catch (e) {
       console.error("Supabase update job error:", e);
     }
@@ -572,8 +590,18 @@ async function handleCompleteJob(jobId, request, env) {
           "Authorization": `Bearer ${sbKey}`,
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ status: "completed", final_price: finalPrice })
+        body: JSON.stringify({ status: "completed", final_price: finalPrice, completed_at: new Date().toISOString() })
       });
+
+      const jobRes = await fetch(`${sbUrl}/rest/v1/leads?id=eq.${jobId}&select=*`, {
+        headers: { "apikey": sbKey, "Authorization": `Bearer ${sbKey}` }
+      });
+      if (jobRes.ok) {
+        const rows = await jobRes.json();
+        if (rows.length > 0) {
+          await syncCustomerFromLead(env, { ...rows[0], final_price: finalPrice });
+        }
+      }
     } catch (e) {
       console.error("Supabase complete error:", e);
     }
@@ -802,20 +830,132 @@ async function handleDeleteJob(jobId, env) {
 async function handleGetCustomers(env) {
   const sbUrl = getSupabaseUrl(env);
   const sbKey = getSupabaseKey(env);
-  if (sbUrl && sbKey) {
-    try {
-      const res = await fetch(`${sbUrl}/rest/v1/customers?select=*&order=total_revenue.desc`, {
-        headers: {
-          "apikey": sbKey,
-          "Authorization": `Bearer ${sbKey}`
-        }
-      });
-      if (res.ok) return jsonResponse(await res.json());
-    } catch (e) {
-      console.error("Supabase customers error:", e);
+  if (!sbUrl || !sbKey) return jsonResponse([]);
+
+  try {
+    // 1. Query existing customers from Supabase
+    const res = await fetch(`${sbUrl}/rest/v1/customers?select=*&order=total_revenue.desc`, {
+      headers: {
+        "apikey": sbKey,
+        "Authorization": `Bearer ${sbKey}`
+      }
+    });
+    let customers = res.ok ? await res.json() : [];
+
+    // 2. Query all leads to auto-populate customer directory and maintain lifetime stats
+    const leadsRes = await fetch(`${sbUrl}/rest/v1/leads?select=*&order=id.desc`, {
+      headers: {
+        "apikey": sbKey,
+        "Authorization": `Bearer ${sbKey}`
+      }
+    });
+    const leads = leadsRes.ok ? await leadsRes.json() : [];
+
+    // Group leads by clean phone digits
+    const leadsByPhone = new Map();
+    for (const lead of leads) {
+      if (!lead.phone) continue;
+      const digits = lead.phone.replace(/\D/g, "");
+      if (!digits) continue;
+      if (!leadsByPhone.has(digits)) leadsByPhone.set(digits, []);
+      leadsByPhone.get(digits).push(lead);
     }
+
+    // Auto-populate or update customers
+    for (const [digits, jobList] of leadsByPhone.entries()) {
+      let match = customers.find(c => (c.phone || "").replace(/\D/g, "") === digits);
+
+      const totalJobs = jobList.length;
+      const totalRev = jobList.reduce((sum, j) => {
+        const p = Number(j.final_price) || (j.status === "completed" ? (Number(j.estimated_price_min) || 150) : 0);
+        return sum + p;
+      }, 0);
+
+      const latestJob = jobList[0];
+      const preferredName = jobList.find(j => j.name && j.name !== "Neighbor")?.name || latestJob.name || "Neighbor";
+      const preferredAddress = jobList.find(j => j.address)?.address || latestJob.address || null;
+      const preferredZip = jobList.find(j => j.zip_code)?.zip_code || latestJob.zip_code || null;
+
+      if (!match) {
+        try {
+          const insertRes = await fetch(`${sbUrl}/rest/v1/customers`, {
+            method: "POST",
+            headers: {
+              "apikey": sbKey,
+              "Authorization": `Bearer ${sbKey}`,
+              "Content-Type": "application/json",
+              "Prefer": "return=representation"
+            },
+            body: JSON.stringify({
+              name: preferredName,
+              phone: latestJob.phone,
+              address: preferredAddress,
+              zip_code: preferredZip,
+              customer_type: "residential",
+              total_jobs: totalJobs,
+              total_revenue: totalRev,
+              notes: latestJob.special_notes || null
+            })
+          });
+          if (insertRes.ok) {
+            const created = await insertRes.json();
+            if (created && created[0]) {
+              match = created[0];
+              customers.push(match);
+            }
+          }
+        } catch (err) {
+          console.error("Auto-insert customer error:", err);
+        }
+      } else {
+        if (match.total_jobs !== totalJobs || match.total_revenue !== totalRev) {
+          try {
+            await fetch(`${sbUrl}/rest/v1/customers?id=eq.${match.id}`, {
+              method: "PATCH",
+              headers: {
+                "apikey": sbKey,
+                "Authorization": `Bearer ${sbKey}`,
+                "Content-Type": "application/json",
+                "Prefer": "return=minimal"
+              },
+              body: JSON.stringify({
+                total_jobs: totalJobs,
+                total_revenue: totalRev,
+                updated_at: new Date().toISOString()
+              })
+            });
+            match.total_jobs = totalJobs;
+            match.total_revenue = totalRev;
+          } catch (e) {}
+        }
+      }
+
+      // Link customer_id to unlinked leads
+      if (match && match.id) {
+        const unlinked = jobList.filter(j => !j.customer_id);
+        for (const un of unlinked) {
+          try {
+            await fetch(`${sbUrl}/rest/v1/leads?id=eq.${un.id}`, {
+              method: "PATCH",
+              headers: {
+                "apikey": sbKey,
+                "Authorization": `Bearer ${sbKey}`,
+                "Content-Type": "application/json",
+                "Prefer": "return=minimal"
+              },
+              body: JSON.stringify({ customer_id: match.id })
+            });
+          } catch (e) {}
+        }
+      }
+    }
+
+    customers.sort((a, b) => (b.total_revenue || 0) - (a.total_revenue || 0));
+    return jsonResponse(customers);
+  } catch (e) {
+    console.error("Supabase customers error:", e);
+    return jsonResponse([]);
   }
-  return jsonResponse([]);
 }
 
 async function handleGetCustomerJobs(custId, env) {
@@ -823,13 +963,31 @@ async function handleGetCustomerJobs(custId, env) {
   const sbKey = getSupabaseKey(env);
   if (sbUrl && sbKey) {
     try {
-      const res = await fetch(`${sbUrl}/rest/v1/leads?customer_id=eq.${custId}&select=*&order=id.desc`, {
-        headers: {
-          "apikey": sbKey,
-          "Authorization": `Bearer ${sbKey}`
-        }
+      let customerPhone = "";
+      const custRes = await fetch(`${sbUrl}/rest/v1/customers?id=eq.${custId}&select=*`, {
+        headers: { "apikey": sbKey, "Authorization": `Bearer ${sbKey}` }
       });
-      if (res.ok) return jsonResponse(await res.json());
+      if (custRes.ok) {
+        const rows = await custRes.json();
+        if (rows.length > 0) customerPhone = rows[0].phone || "";
+      }
+
+      const res = await fetch(`${sbUrl}/rest/v1/leads?customer_id=eq.${custId}&select=*&order=id.desc`, {
+        headers: { "apikey": sbKey, "Authorization": `Bearer ${sbKey}` }
+      });
+      let jobs = res.ok ? await res.json() : [];
+
+      if (jobs.length === 0 && customerPhone) {
+        const allRes = await fetch(`${sbUrl}/rest/v1/leads?select=*&order=id.desc`, {
+          headers: { "apikey": sbKey, "Authorization": `Bearer ${sbKey}` }
+        });
+        if (allRes.ok) {
+          const allLeads = await allRes.json();
+          const clean = customerPhone.replace(/\D/g, "");
+          jobs = allLeads.filter(j => (j.phone || "").replace(/\D/g, "") === clean);
+        }
+      }
+      return jsonResponse(jobs);
     } catch (e) {
       console.error("Supabase customer jobs error:", e);
     }
@@ -1137,6 +1295,80 @@ function getTelegramConfig(env) {
   const token = env.TELEGRAM_BOT_TOKEN || "8763259433:AAEQBjWVnIoGx2Q8V_LzxNUqt3PK5DO_s_c";
   const chatId = env.TELEGRAM_CHAT_ID || "8804602943";
   return { token, chatId, isConfigured: Boolean(token && chatId) };
+}
+
+async function syncCustomerFromLead(env, leadData) {
+  const sbUrl = getSupabaseUrl(env);
+  const sbKey = getSupabaseKey(env);
+  if (!sbUrl || !sbKey || !leadData || !leadData.phone) return null;
+
+  try {
+    const rawPhone = String(leadData.phone).trim();
+    const cleanDigits = rawPhone.replace(/\D/g, "");
+    if (!cleanDigits) return null;
+
+    const res = await fetch(`${sbUrl}/rest/v1/customers?select=*`, {
+      headers: { "apikey": sbKey, "Authorization": `Bearer ${sbKey}` }
+    });
+    let existing = null;
+    if (res.ok) {
+      const customers = await res.json();
+      existing = customers.find(c => (c.phone || "").replace(/\D/g, "") === cleanDigits);
+    }
+
+    if (existing) {
+      const updates = {};
+      if (leadData.name && (!existing.name || existing.name === "Neighbor")) updates.name = leadData.name;
+      if (leadData.address && !existing.address) updates.address = leadData.address;
+      if (leadData.zip_code && !existing.zip_code) updates.zip_code = leadData.zip_code;
+      if (leadData.customer_type && existing.customer_type === "residential") updates.customer_type = leadData.customer_type;
+      if (leadData.final_price) {
+        updates.total_revenue = (existing.total_revenue || 0) + Number(leadData.final_price);
+      }
+      if (Object.keys(updates).length > 0) {
+        updates.updated_at = new Date().toISOString();
+        await fetch(`${sbUrl}/rest/v1/customers?id=eq.${existing.id}`, {
+          method: "PATCH",
+          headers: {
+            "apikey": sbKey,
+            "Authorization": `Bearer ${sbKey}`,
+            "Content-Type": "application/json",
+            "Prefer": "return=minimal"
+          },
+          body: JSON.stringify(updates)
+        });
+      }
+      return existing.id;
+    } else {
+      const newCust = {
+        name: leadData.name || "Neighbor",
+        phone: rawPhone,
+        address: leadData.address || null,
+        zip_code: leadData.zip_code || null,
+        customer_type: leadData.customer_type || "residential",
+        total_jobs: 1,
+        total_revenue: leadData.final_price ? Number(leadData.final_price) : 0,
+        notes: leadData.special_notes || null
+      };
+      const createRes = await fetch(`${sbUrl}/rest/v1/customers`, {
+        method: "POST",
+        headers: {
+          "apikey": sbKey,
+          "Authorization": `Bearer ${sbKey}`,
+          "Content-Type": "application/json",
+          "Prefer": "return=representation"
+        },
+        body: JSON.stringify(newCust)
+      });
+      if (createRes.ok) {
+        const rows = await createRes.json();
+        return rows[0] ? rows[0].id : null;
+      }
+    }
+  } catch (e) {
+    console.error("Error in syncCustomerFromLead:", e);
+  }
+  return null;
 }
 
 function jsonResponse(data, status = 200) {

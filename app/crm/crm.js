@@ -883,6 +883,35 @@ async function fetchCustomers() {
     try {
         const res = await fetch('/api/crm/customers');
         cachedCustomers = await res.json();
+
+        // Automatic fallback aggregation from loaded jobs if database is syncing
+        if ((!cachedCustomers || cachedCustomers.length === 0) && cachedJobs && cachedJobs.length > 0) {
+            const custMap = new Map();
+            cachedJobs.forEach(job => {
+                if (!job.phone) return;
+                const clean = job.phone.replace(/\D/g, '');
+                if (!custMap.has(clean)) {
+                    custMap.set(clean, {
+                        id: job.customer_id || job.id,
+                        name: job.name && job.name !== 'Neighbor' ? job.name : 'Neighbor',
+                        phone: job.phone,
+                        address: job.address || '',
+                        zip_code: job.zip_code || '95841',
+                        customer_type: 'residential',
+                        total_jobs: 0,
+                        total_revenue: 0,
+                        notes: job.special_notes || ''
+                    });
+                }
+                const c = custMap.get(clean);
+                c.total_jobs++;
+                if (job.status === 'completed') {
+                    c.total_revenue += Number(job.final_price || job.estimated_price_min || 150);
+                }
+            });
+            cachedCustomers = Array.from(custMap.values()).sort((a, b) => (b.total_revenue || 0) - (a.total_revenue || 0));
+        }
+
         renderCustomerTable(cachedCustomers);
     } catch (e) {
         console.error("Customer fetch error", e);
@@ -954,16 +983,24 @@ async function openCustomerModal(customerId) {
     histContainer.innerHTML = '<div style="color:var(--text-muted);font-size:0.85rem">Loading job records...</div>';
 
     try {
+        let jobs = [];
         const res = await fetch(`/api/crm/customers/${customerId}/jobs`);
-        const jobs = await res.json();
+        if (res.ok) jobs = await res.json();
+
+        // Fallback search in cachedJobs by customer phone if endpoint returned empty
+        if ((!jobs || jobs.length === 0) && cachedJobs && customer.phone) {
+            const clean = customer.phone.replace(/\D/g, '');
+            jobs = cachedJobs.filter(j => (j.phone || '').replace(/\D/g, '') === clean);
+        }
+
         if (jobs.length === 0) {
             histContainer.innerHTML = '<div style="color:var(--text-muted);font-size:0.85rem">No previous jobs recorded for this customer.</div>';
         } else {
             histContainer.innerHTML = jobs.map(j => `
                 <div style="background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:6px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center">
                     <div>
-                        <div style="font-weight:700;font-size:0.9rem">${j.estimated_tier || 'Haul'} · <span style="color:var(--orange-light)">${j.status.toUpperCase()}</span></div>
-                        <div style="font-size:0.75rem;color:var(--text-muted)">${j.preferred_date || j.created_at || 'Recent'} ${j.special_notes ? `· "${j.special_notes}"` : ''}</div>
+                        <div style="font-weight:700;font-size:0.9rem">${j.estimated_tier || 'Haul'} · <span style="color:var(--orange-light)">${(j.status || 'NEW').toUpperCase()}</span></div>
+                        <div style="font-size:0.75rem;color:var(--text-muted)">${j.preferred_date || (j.created_at ? new Date(j.created_at).toLocaleDateString() : 'Recent')} ${j.special_notes ? `· "${j.special_notes}"` : ''}</div>
                     </div>
                     <div style="font-family:var(--font-heading);font-size:1.1rem;color:var(--green);font-weight:800">
                         $${j.final_price || j.estimated_price_min || 150}
