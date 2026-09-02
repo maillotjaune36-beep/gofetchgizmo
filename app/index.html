@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Go fetch, Gizmo! | Local Hauling & Deliveries</title>
+    <meta name="title" content="Go fetch, Gizmo! | Local Hauling & Deliveries">
+    <meta name="description" content="Fast, affordable junk hauling and local deliveries in Citrus Heights. Starting at just $90. Text a photo for a fast quote!">
+
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://gofetchgizmo.com/">
+    <meta property="og:title" content="Go fetch, Gizmo! | Hauling Service">
+    <meta property="og:description" content="Affordable junk hauling and deliveries in Citrus Heights. We fetch what you cannot!">
+    <meta property="og:image" content="https://gofetchgizmo.com/link-preview.png">
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "LocalBusiness",
+      "name": "Go Fetch, Gizmo!",
+      "telephone": "+19165468537",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "Citrus Heights",
+        "addressRegion": "CA",
+        "addressCountry": "US"
+      },
+      "areaServed": ["Citrus Heights", "Carmichael", "Fair Oaks", "Rancho Cordova", "Roseville", "Folsom", "Sacramento"],
+      "priceRange": "$$",
+      "description": "Local junk removal and hauling in the Sacramento area. Fast quotes, honest prices, and a very good dog supervising every job."
+    }
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/estimator.css">
+
+    <style>
+        :root {
+            --navy:        #0B162A;
+            --navy-mid:    #132035;
+            --navy-light:  #1C2E45;
+            --orange:      #C83803;
+            --orange-up:   #E04004;
+            --orange-pale: #FFF1EB;
+            --cream:       #FDF8F0;
+            --white:       #FFFFFF;
+            --gold:        #F59E0B;
+            --green:       #22C55E;
+            --text:        #1A1A2E;
+            --muted:       #586070;
+            --border:      #E8E2DA;
+            --r:           8px;
+            --r-lg:        16px;
+            --sh-sm:       0 2px 8px rgba(0,0,0,.06);
+            --sh-md:       0 8px 24px rgba(0,0,0,.12);
+            --sh-lg:       0 20px 50px rgba(0,0,0,.18);
+        }
+
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Nunito', sans-serif;
+            color: var(--text);
+            background: var(--cream);
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+
+        /* ─── TYPOGRAPHY ──────────────────────────────────── */
+        .display {
+            font-family: 'Big Shoulders Display', sans-serif;
+            text-transform: uppercase;
+            line-height: .92;
+            letter-spacing: -.5px;
+        }
+        h2 {
+            font-family: 'Big Shoulders Display', sans-serif;
+            text-transform: uppercase;
+            font-size: clamp(2rem, 5vw, 2.9rem);
+            line-height: 1;
+            letter-spacing: -.2px;
+            color: var(--navy);
+        }
+        h3 {
+            font-family: 'Big Shoulders Display', sans-serif;
+            text-transform: uppercase;
+            font-size: 1.45rem;
+            letter-spacing: .3px;
+            color: var(--navy);
+        }
+        p { line-height: 1.72; }
+
+        /* ─── SCROLL REVEAL ───────────────────────────────── */
+        .rv {
+            opacity: 0;
+            transform: translateY(24px);
+            transition: opacity .6s ease, transform .6s ease;
+        }
+        .rv.in  { opacity:1; transform:translateY(0); }
+        .rv.d1  { transition-delay:.10s; }
+        .rv.d2  { transition-delay:.20s; }
+        .rv.d3  { transition-delay:.30s; }
+        .rv.d4  { transition-delay:.40s; }
+
+        /* ─── HEADER ──────────────────────────────────────── */
+        .site-header {
+            position: sticky; top: 0; z-index: 100;
+            background: var(--navy);
+            border-bottom: 3px solid var(--orange);
+            transition: box-shadow .3s;
+        }
+        .site-header.scrolled { box-shadow: 0 4px 24px rgba(0,0,0,.35); }
+
+        .header-inner {
+            max-width: 1140px; margin: 0 auto;
+            padding: .9rem 1.5rem;
+            display: flex; align-items: center;
+            justify-content: space-between; gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .logo {
+            display: flex; align-items: center; gap: 10px;
+            text-decoration: none; color: var(--white);
+            font-family: 'Big Shoulders Display', sans-serif;
+            font-size: 1.6rem; font-weight: 800;
+            text-transform: uppercase; letter-spacing: .5px; line-height: 1;
+        }
+        .logo svg { flex-shrink:0; }
+        .logo-sub {
+            font-family: 'Nunito', sans-serif;
+            font-size: .63rem; font-weight: 700;
+            color: var(--orange); text-transform: uppercase;
+            letter-spacing: 2px; display: block; margin-top: 3px;
+        }
+
+        .header-ctas { display: flex; align-items: center; gap: .65rem; }
+
+        .btn-call {
+            display: flex; align-items: center; gap: 6px;
+            background: transparent;
+            border: 2px solid rgba(255,255,255,.2);
+            color: var(--white); text-decoration: none;
+            padding: 8px 15px; border-radius: var(--r);
+            font-family: 'Big Shoulders Display', sans-serif;
+            font-size: 1.05rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: .5px;
+            transition: border-color .2s, background .2s;
+        }
+        .btn-call:hover { border-color: var(--orange); background: rgba(200,56,3,.12); }
+
+        .btn-header-cta {
+            display: flex; align-items: center; gap: 6px;
+            background: var(--orange); color: var(--white);
+            text-decoration: none; padding: 10px 18px; border-radius: var(--r);
+            font-family: 'Big Shoulders Display', sans-serif;
+            font-size: 1.05rem; font-weight: 800;
+            text-transform: uppercase; letter-spacing: .5px;
+            transition: background .2s, transform .15s;
+            white-space: nowrap;
+        }
+        .btn-header-cta:hover { background: var(--orange-up); transform: translateY(-1px); }
+
+        /* ─── HERO ────────────────────────────────────────── */
+        .hero {
+            background: var(--navy);
+            padding: 4.5rem 1.5rem 5rem;
+            overflow: hidden; position: relative;
+        }
+        .hero::before {
+            content: '';
+            position: absolute; inset: 0;
+            background-image:
+                linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+            background-size: 52px 52px;
+            pointer-events: none;
+        }
+        .hero::after {
+            content: '';
+            position: absolute; top: -120px; right: -120px;
+            width: 560px; height: 560px;
+            background: radial-gradient(circle, rgba(200,56,3,.2) 0%, transparent 68%);
+            pointer-events: none;
+        }
+
+        .hero-inner {
+            max-width: 1140px; margin: 0 auto;
+            display: grid; grid-template-columns: 1fr;
+            gap: 3rem; align-items: center;
+            position: relative; z-index: 1;
+        }
+
+        .hero-eyebrow {
+            display: inline-flex; align-items: center; gap: 9px;
+            background: rgba(200,56,3,.15);
+            border: 1px solid rgba(200,56,3,.4);
+            color: #FF9A78;
+            font-size: .78rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 2px;
+            padding: 6px 14px; border-radius: 40px; margin-bottom: 1.5rem;
+        }
+        .eyebrow-pulse {
+            width: 7px; height: 7px;
+            background: var(--orange); border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.65)} }
+
+        .hero-headline {
+            font-size: clamp(3.4rem, 8vw, 6.2rem);
+            color: var(--white); margin-bottom: 1.35rem;
+        }
+        .hero-headline .accent { color: var(--orange); }
+
+        .hero-sub {
+            color: #96AABB; font-size: 1.18rem;
+            max-width: 490px; margin-bottom: 2.25rem; line-height: 1.68;
+        }
+
+        .hero-cta-row {
+            display: flex; flex-wrap: wrap;
+            gap: 1rem; align-items: center; margin-bottom: 2.25rem;
+        }
+
+        .btn-primary {
+            display: inline-flex; align-items: center; gap: 10px;
+            background: var(--orange); color: var(--white);
+            text-decoration: none; padding: 16px 28px; border-radius: var(--r);
+            font-family: 'Big Shoulders Display', sans-serif;
+            font-size: 1.35rem; font-weight: 800;
+            text-transform: uppercase; letter-spacing: .5px;
+            box-shadow: 0 6px 30px rgba(200,56,3,.45);
+            transition: background .2s, transform .2s, box-shadow .2s;
+        }
+        .btn-primary:hover {
+            background: var(--orange-up); transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(200,56,3,.55);
+        }
+
+        .btn-ghost-hero {
+            display: inline-flex; align-items: center; gap: 7px;
+            color: #8AAABB; text-decoration: none;
+            font-size: .97rem; font-weight: 600;
+            transition: color .2s;
+        }
+        .btn-ghost-hero:hover { color: var(--white); }
+
+        .hero-trust-row {
+            display: flex; flex-wrap: wrap; gap: 1.4rem;
+        }
+        .hero-trust-item {
+            display: flex; align-items: center; gap: 7px;
+            color: #6A8A9A; font-size: .88rem; font-weight: 600;
+        }
+
+        /* ─── TRUST BAR ───────────────────────────────────── */
+        .trust-bar { background: var(--orange); overflow: hidden; }
+        .trust-bar-scroll {
+            display: flex; overflow-x: auto; scrollbar-width: none;
+        }
+        .trust-bar-scroll::-webkit-scrollbar { display: none; }
+        .trust-item {
+            display: flex; align-items: center; gap: 9px;
+            padding: 1rem 2rem;
+            color: var(--white); font-weight: 700;
+            font-size: .84rem; text-transform: uppercase; letter-spacing: 1.2px;
+            white-space: nowrap; flex-shrink: 0;
+            border-right: 1px solid rgba(255,255,255,.2);
+        }
+        .trust-item:last-child { border-right: none; }
+
+        /* ─── SECTION SHELL ───────────────────────────────── */
+        .section { padding: 5rem 1.5rem; }
+        .section-inner { max-width: 1140px; margin: 0 auto; }
+        .sec-label {
+            display: inline-block;
+            font-size: .72rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 3px;
+            color: var(--orange); margin-bottom: .65rem;
+        }
+        .sec-sub {
+            color: var(--muted); font-size: 1.07rem;
+            max-width: 560px; margin-bottom: 3.25rem; line-height: 1.7;
+        }
+
+        /* ─── HOW IT WORKS ────────────────────────────────── */
+        .how-bg { background: var(--white); }
+        .steps { display: grid; grid-template-columns: 1fr; gap: 0; }
+        .step {
+            display: flex; gap: 1.5rem; padding: 2.4rem 0;
+            border-bottom: 1px solid var(--border);
+            align-items: flex-start;
+        }
+        .step:last-child { border-bottom: none; }
+        .step-n {
+            width: 54px; height: 54px; flex-shrink: 0;
+            border-radius: 50%; display: flex;
+            align-items: center; justify-content: center;
+            font-family: 'Big Shoulders Display', sans-serif;
+            font-size: 1.45rem; font-weight: 900;
+        }
+        .s1 .step-n { background: var(--orange); color: var(--white); }
+        .s2 .step-n { background: var(--navy); color: var(--white); }
+        .s3 .step-n { background: var(--navy); color: var(--white); }
+        .step-content h3 { margin-bottom: .4rem; }
+        .step-content p { color: var(--muted); margin: 0; font-size: .975rem; }
+
+        /* ─── PRICING ─────────────────────────────────────── */
+        .pricing-bg { background: var(--cream); }
+        .pricing-grid {
+            display: grid; grid-template-columns: 1fr; gap: 1.4rem;
+        }
+        .price-card {
+            background: var(--white);
+            border: 2px solid var(--border);
+            border-radius: var(--r-lg);
+            padding: 2.5rem 2rem;
+            text-align: center; position: relative;
+            transition: transform .25s, box-shadow .25s, border-color .25s;
+        }
+        .price-card:hover { transform: translateY(-4px); box-shadow: var(--sh-md); }
+        .price-card.featured {
+            border-color: var(--orange);
+            box-shadow: 0 0 0 1px var(--orange), var(--sh-md);
+        }
+        .price-badge {
+            position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+            background: var(--navy); color: var(--white);
+            font-family: 'Big Shoulders Display', sans-serif;
+            font-size: .82rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 1.5px;
+            padding: 4px 16px; border-radius: 30px; white-space: nowrap;
+        }
+        .price-card.featured .price-badge { background: var(--orange); }
+        .price-emoji { font-size: 2.5rem; margin-bottom: .4rem; }
+        .price-tier {
+            font-family: 'Big Shoulders Display', sans-serif;
+            font-size: 1rem; color: var(--muted);
+            text-transform: uppercase; letter-spacing: 2px; margin-bottom: .65rem;
+        }
+        .price-big {
+            font-family: 'Big Shoulders Display', sans-serif;
+            font-size: 4.2rem; font-weight: 900;
+            color: var(--navy); line-height: 1; margin-bottom: .2rem;
+        }
+        .price-from {
+            font-size: .9rem; font-weight: 600;
+            color: var(--muted); display: block;
+            margin-bottom: .2rem; font-family: 'Nunito', sans-serif;
+            text-transform: none; letter-spacing: 0;
+        }
+        .price-size {
+            color: var(--orange); font-weight: 700; font-size: .82rem;
+            text-transform: uppercase; letter-spacing: 1px; margin-bottom: 1.1rem;
+        }
+        .price-desc { color: var(--muted); font-size: .95rem; margin: 0; }
+        .price-footnote {
+            text-align: center; color: var(--muted); font-size: .88rem;
+            margin-top: 2rem;
+        }
+
+        /* ─── COMPARE TABLE ───────────────────────────────── */
+        .compare-bg { background: var(--navy); }
+        .compare-bg .sec-label { color: #FF9A78; }
+        .compare-bg h2 { color: var(--white); }
+        .compare-bg .sec-sub { color: #7A9AAA; }
+        .compare-wrap { overflow-x: auto; border-radius: var(--r-lg); }
+        .compare-table {
+            width: 100%; border-collapse: collapse;
+            border-radius: var(--r-lg); overflow: hidden;
+            box-shadow: var(--sh-lg);
+        }
+        .compare-table thead tr { background: var(--navy-light); }
+        .compare-table th {
+            padding: 1.2rem 1.5rem; text-align: left;
+            font-family: 'Big Shoulders Display', sans-serif;
+            font-size: 1.05rem; text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 2px solid rgba(255,255,255,.06);
+        }
+        .compare-table th.col-us { color: var(--orange); }
+        .compare-table th.col-them { color: #3A5568; }
+        .compare-table th.col-attr { color: #5A7080; }
+        .compare-table tbody tr {
+            background: rgba(255,255,255,.025);
+            border-bottom: 1px solid rgba(255,255,255,.04);
+            transition: background .2s;
+        }
+        .compare-table tbody tr:hover { background: rgba(255,255,255,.05); }
+        .compare-table tbody tr:last-child { border-bottom: none; }
+        .compare-table td { padding: 1.05rem 1.5rem; font-size: .965rem; color: #8AAABB; }
+        .compare-table td:first-child { color: var(--white); font-weight: 600; }
+        .win {
+            display: inline-flex; align-items: center; gap: 6px;
+            color: #4ADE80; font-weight: 700;
+        }
+        .lose { color: #3A5568; font-style: italic; }
+
+        /* ─── SERVICES ────────────────────────────────────── */
+        .services-bg { background: var(--white); }
+        .services-grid { display: grid; grid-template-columns: 1fr; gap: 1.4rem; }
+        .service-card {
+            background: var(--cream);
+            border: 1px solid var(--border);
+            border-radius: var(--r-lg); padding: 2.25rem 2rem;
+            transition: transform .25s, box-shadow .25s;
+            position: relative; overflow: hidden;
+        }
+        .service-card::after {
+            content: ''; position: absolute; bottom:0; left:0;
+            width: 0; height: 3px; background: var(--orange);
+            transition: width .35s ease;
+        }
+        .service-card:hover::after { width: 100%; }
+        .service-card:hover { transform: translateY(-3px); box-shadow: var(--sh-md); }
+        .svc-icon {
+            width: 56px; height: 56px;
+            background: var(--orange-pale); border-radius: var(--r);
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: 1.15rem;
+        }
+        .svc-icon svg { width: 26px; height: 26px; fill: var(--orange); }
+        .service-card h3 { margin-bottom: .45rem; }
+        .service-card p { color: var(--muted); margin: 0; font-size: .965rem; }
+
+        /* ─── STANDBY ─────────────────────────────────────── */
+        .standby-wrap {
+            background: var(--orange);
+            padding: 5rem 1.5rem;
+            position: relative; overflow: hidden;
+        }
+        .standby-wrap::before {
+            content: 'STANDBY';
+            position: absolute; right: -2rem; top: 50%;
+            transform: translateY(-50%);
+            font-family: 'Big Shoulders Display', sans-serif;
+            font-size: clamp(5rem, 18vw, 13rem); font-weight: 900;
+            color: rgba(0,0,0,.08); white-space: nowrap;
+            pointer-events: none; text-transform: uppercase; line-height: 1;
+        }
+        .standby-inner {
+            max-width: 1140px; margin: 0 auto;
+            display: grid; grid-template-columns: 1fr;
+            gap: 2.5rem; align-items: center; position: relative; z-index: 1;
+        }
+        .standby-chip {
+            display: inline-block;
+            background: rgba(0,0,0,.14); color: var(--white);
+            font-size: .72rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 2.5px;
+            padding: 5px 14px; border-radius: 30px; margin-bottom: .9rem;
+        }
+        .standby-title { font-size: clamp(2.25rem, 6vw, 4rem); color: var(--white); margin-bottom: 1.1rem; }
+        .standby-body { color: rgba(255,255,255,.85); font-size: 1.12rem; max-width: 540px; margin-bottom: 1.75rem; }
+        .standby-steps { display: flex; flex-direction: column; gap: .9rem; }
+        .sb-step {
+            display: flex; align-items: center; gap: 1rem;
+            background: rgba(0,0,0,.12); border-radius: var(--r); padding: .9rem 1.15rem;
+        }
+        .sb-num {
+            width: 34px; height: 34px; flex-shrink: 0;
+            background: var(--white); color: var(--orange);
+            border-radius: 50%; display: flex;
+            align-items: center; justify-content: center;
+            font-family: 'Big Shoulders Display', sans-serif;
+            font-size: 1.05rem; font-weight: 900;
+        }
+        .sb-step p { color: var(--white); margin: 0; font-weight: 600; font-size: .93rem; }
+
+        /* ─── FAQ ─────────────────────────────────────────── */
+        .faq-bg { background: var(--white); }
+        .faq-list {
+            max-width: 760px; margin: 0 auto;
+            display: flex; flex-direction: column; gap: .7rem;
+        }
+        .faq-item {
+            border: 1px solid var(--border); border-radius: var(--r);
+            overflow: hidden; transition: border-color .2s, box-shadow .2s;
+        }
+        .faq-item.open {
+            border-color: var(--orange);
+            box-shadow: 0 0 0 3px rgba(200,56,3,.07);
+        }
+        .faq-q {
+            width: 100%; background: var(--white); border: none; cursor: pointer;
+            padding: 1.15rem 1.4rem;
+            display: flex; align-items: center;
+            justify-content: space-between; gap: 1rem;
+            text-align: left; font-family: 'Nunito', sans-serif;
+            font-size: .975rem; font-weight: 700; color: var(--navy);
+            transition: background .2s;
+        }
+        .faq-q:hover { background: var(--cream); }
+        .faq-item.open .faq-q { color: var(--orange); }
+        .faq-chev {
+            width: 19px; height: 19px; flex-shrink: 0;
+            color: var(--muted); transition: transform .3s;
+        }
+        .faq-item.open .faq-chev { transform: rotate(180deg); color: var(--orange); }
+        .faq-a { max-height: 0; overflow: hidden; transition: max-height .38s ease; }
+        .faq-item.open .faq-a { max-height: 300px; }
+        .faq-a-inner {
+            padding: 0 1.4rem 1.15rem;
+            color: var(--muted); font-size: .955rem; line-height: 1.72;
+        }
+
+        /* ─── FOOTER ──────────────────────────────────────── */
+        .site-footer {
+            background: var(--navy); border-top: 4px solid var(--orange);
+            padding: 5rem 1.5rem 2.5rem;
+            text-align: center; position: relative; overflow: hidden;
+        }
+        .site-footer::before {
+            content: ''; position: absolute; inset: 0;
+            background-image: repeating-linear-gradient(45deg,
+                rgba(255,255,255,.01) 0px, rgba(255,255,255,.01) 2px,
+                transparent 2px, transparent 12px);
+            pointer-events: none;
+        }
+        .footer-inner { max-width: 680px; margin: 0 auto; position: relative; z-index: 1; }
+        .footer-headline { font-size: clamp(1.9rem, 5vw, 3.1rem); color: var(--white); margin-bottom: .7rem; }
+        .footer-sub { color: #6A8A9A; font-size: 1.02rem; margin-bottom: 2.25rem; }
+        .footer-cta-row {
+            display: flex; flex-direction: column;
+            align-items: center; gap: .85rem; margin-bottom: 3.25rem;
+        }
+        .footer-hr { border: none; border-top: 1px solid rgba(255,255,255,.06); margin-bottom: 2.25rem; }
+        .area-label {
+            font-size: .7rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 2.5px;
+            color: #2E4558; margin-bottom: .75rem;
+        }
+        .area-tags { display: flex; flex-wrap: wrap; justify-content: center; gap: .6rem; margin-bottom: 1.75rem; }
+        .area-tag {
+            background: rgba(255,255,255,.05); color: #6A8A9A;
+            font-size: .75rem; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 1px; padding: 4px 13px; border-radius: 30px;
+        }
+        .footer-copy { color: #2E4558; font-size: .77rem; }
+
+        /* ─── RESPONSIVE ──────────────────────────────────── */
+        @media (min-width: 600px) {
+            .pricing-grid { grid-template-columns: repeat(3, 1fr); }
+            .services-grid { grid-template-columns: repeat(3, 1fr); }
+            .footer-cta-row { flex-direction: row; justify-content: center; }
+            .price-card.featured { transform: scale(1.03); }
+            .price-card.featured:hover { transform: scale(1.03) translateY(-4px); }
+        }
+        @media (min-width: 900px) {
+            .hero-inner { grid-template-columns: 1fr 1fr; }
+            .standby-inner { grid-template-columns: 1fr 1fr; }
+            .steps { grid-template-columns: repeat(3, 1fr); gap: 0; }
+            .step { flex-direction: column; padding: 2rem; border-bottom: none; border-right: 1px solid var(--border); }
+            .step:last-child { border-right: none; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════
+     HEADER
+══════════════════════════════════════════════════ -->
+<header class="site-header" id="js-header">
+    <div class="header-inner">
+        <a href="#" class="logo">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="var(--orange)">
+                <path d="M12 11c-2.3 0-4.8 1.4-5.8 3.5-1.3 2.7-.4 4.5 1 5.3 1.2.7 2.8.7 4.8.7s3.6 0 4.8-.7c1.4-.8 2.3-2.6 1-5.3C16.8 12.4 14.3 11 12 11zm2.5-2.5c1.4 0 2.5-1.1 2.5-2.5S15.9 3.5 14.5 3.5 12 4.6 12 6s1.1 2.5 2.5 2.5zM9.5 8.5c1.4 0 2.5-1.1 2.5-2.5S10.9 3.5 9.5 3.5 7 4.6 7 6s1.1 2.5 2.5 2.5zM5.5 11.5c1.4 0 2.5-1.1 2.5-2.5S6.9 6.5 5.5 6.5 3 7.6 3 9s1.1 2.5 2.5 2.5zM18.5 11.5c1.4 0 2.5-1.1 2.5-2.5S19.9 6.5 18.5 6.5 16 7.6 16 9s1.1 2.5 2.5 2.5z"/>
+            </svg>
+            <span>
+                Go Fetch, Gizmo!
+                <span class="logo-sub">Local Hauling · Sacramento Area</span>
+            </span>
+        </a>
+        <div class="header-ctas">
+            <a href="tel:9165468537" class="btn-call">
+                <svg width="15" height="15" fill="currentColor" viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
+                (916) 546-8537
+            </a>
+            <a href="sms:9165468537" class="btn-header-cta">Text for a Quote →</a>
+        </div>
+    </div>
+</header>
+
+<!-- ══════════════════════════════════════════════════
+     HERO WITH INSTANT AI ESTIMATOR
+══════════════════════════════════════════════════ -->
+<section class="hero">
+    <div class="hero-inner">
+
+        <!-- Text column -->
+        <div>
+            <div class="hero-eyebrow rv">
+                <span class="eyebrow-pulse"></span>
+                Citrus Heights · Carmichael · Fair Oaks
+            </div>
+
+            <h1 class="display hero-headline rv d1">
+                Your<br>Neighbor<br>With&nbsp;A<br><span class="accent">Truck.</span>
+            </h1>
+
+            <p class="hero-sub rv d2">
+                Fast quotes, fair prices, and a very good dog supervising every job.
+                We haul it, so you don't have to.
+            </p>
+
+            <div class="hero-cta-row rv d3">
+                <a href="sms:9165468537" class="btn-primary">
+                    <svg width="21" height="21" fill="currentColor" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+                    Text a Photo for a Quote
+                </a>
+                <a href="tel:9165468537" class="btn-ghost-hero">
+                    <svg width="15" height="15" fill="currentColor" viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
+                    or just call
+                </a>
+            </div>
+
+            <div class="hero-trust-row rv d4">
+                <div class="hero-trust-item">
+                    <svg width="17" height="17" fill="#22C55E" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
+                    Reply in under 1 hour
+                </div>
+                <div class="hero-trust-item">
+                    <svg width="17" height="17" fill="#22C55E" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
+                    No hidden fees
+                </div>
+                <div class="hero-trust-item">
+                    <svg width="17" height="17" fill="#22C55E" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
+                    Gizmo-approved
+                </div>
+            </div>
+        </div>
+
+        <!-- Estimator column -->
+        <div class="rv d2">
+            <div class="estimator-card">
+                <div class="estimator-header">
+                    <h3 class="estimator-title">Snap & <span>Quote</span> 🐾</h3>
+                    <p class="estimator-subtitle">Upload 1–3 photos of what you need gone for an instant price estimate!</p>
+                </div>
+
+                <div class="dropzone" id="dropzone">
+                    <div class="dropzone-icon">📸</div>
+                    <div class="dropzone-text">Tap to snap or drag photos here</div>
+                    <div class="dropzone-hint">Upload up to 3 photos for an instant quote</div>
+                    <input type="file" id="fileInput" accept="image/*" multiple style="display:none">
+                </div>
+
+                <div class="preview-grid" id="previewGrid"></div>
+
+                <button class="btn-estimate" id="btnEstimate" disabled>
+                    Upload Photos to Get Quote
+                </button>
+
+                <div class="loading-box" id="loadingBox">
+                    <div class="dog-spinner">🐕</div>
+                    <div class="loading-text">Gizmo is sniffing out the pile...</div>
+                    <p style="color:#8AAABB;font-size:0.85rem;margin-top:0.3rem">Calculating volume & flat rate...</p>
+                </div>
+
+                <!-- Live Quote Result -->
+                <div class="quote-result" id="quoteResult">
+                    <div class="quote-tier-badge" id="resTierBadge">🐕 The Retriever</div>
+
+                    <div class="quote-price-display">
+                        <div class="quote-price-amount" id="resPriceRange">$150 - $180</div>
+                        <div class="quote-price-label">estimated flat rate</div>
+                    </div>
+
+                    <div class="standby-highlight">
+                        ⚡ <strong>Standby Route Rate: <span id="resStandbyPrice">$130 - $160</span></strong><br>
+                        Save $20 if we can pick up during our scheduled neighborhood run!
+                    </div>
+
+                    <div style="font-size:0.8rem;color:#8AAABB;text-transform:uppercase;letter-spacing:1px;margin-top:0.5rem">
+                        Items Identified:
+                    </div>
+                    <div class="items-tag-list" id="resItemsList"></div>
+
+                    <div class="gizmo-says" id="resGizmoComment">
+                        "Woof! That's an easy half-truck load. We can fetch it today!"
+                    </div>
+
+                    <!-- 1-Click Intake Form -->
+                    <form class="booking-form" id="bookingForm">
+                        <div class="form-row">
+                            <input type="text" class="form-input" id="clientName" placeholder="Your Name" required>
+                            <input type="tel" class="form-input" id="clientPhone" placeholder="Cell Phone" required>
+                        </div>
+                        <div class="form-row">
+                            <input type="text" class="form-input" id="clientZip" placeholder="Zip Code (e.g. 95610)" required>
+                            <input type="date" class="form-input" id="clientDate">
+                        </div>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="standbyCheckbox" checked>
+                            <span>Opt-in for Standby Discount ($20 OFF)</span>
+                        </label>
+                        <button type="submit" class="btn-book">
+                            Lock In My Rate & Reserve Slot →
+                        </button>
+                    </form>
+
+                    <div id="bookingSuccess" style="display:none;margin-top:1.2rem;text-align:center;color:#22C55E;font-weight:700;font-size:1.05rem;background:rgba(34,197,94,0.12);padding:1rem;border-radius:8px;border:1px solid rgba(34,197,94,0.3);">
+                        🎉 Slot reserved! Brandon is texting you confirmation right now! 🐾
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     TRUST BAR
+══════════════════════════════════════════════════ -->
+<div class="trust-bar">
+    <div class="trust-bar-scroll">
+        <div class="trust-item">
+            <svg width="17" height="17" fill="currentColor" viewBox="0 0 24 24"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+            Reply in under 1 hour
+        </div>
+        <div class="trust-item">
+            <svg width="17" height="17" fill="currentColor" viewBox="0 0 24 24"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>
+            No hidden fees · Flat rates
+        </div>
+        <div class="trust-item">
+            <svg width="17" height="17" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+            Locally owned · Citrus Heights, CA
+        </div>
+        <div class="trust-item">
+            <svg width="17" height="17" fill="currentColor" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+            You always know who shows up
+        </div>
+        <div class="trust-item">
+            <svg width="17" height="17" fill="currentColor" viewBox="0 0 24 24"><path d="M12 11c-2.3 0-4.8 1.4-5.8 3.5-1.3 2.7-.4 4.5 1 5.3 1.2.7 2.8.7 4.8.7s3.6 0 4.8-.7c1.4-.8 2.3-2.6 1-5.3C16.8 12.4 14.3 11 12 11zm2.5-2.5c1.4 0 2.5-1.1 2.5-2.5S15.9 3.5 14.5 3.5 12 4.6 12 6s1.1 2.5 2.5 2.5zM9.5 8.5c1.4 0 2.5-1.1 2.5-2.5S10.9 3.5 9.5 3.5 7 4.6 7 6s1.1 2.5 2.5 2.5zM5.5 11.5c1.4 0 2.5-1.1 2.5-2.5S6.9 6.5 5.5 6.5 3 7.6 3 9s1.1 2.5 2.5 2.5zM18.5 11.5c1.4 0 2.5-1.1 2.5-2.5S19.9 6.5 18.5 6.5 16 7.6 16 9s1.1 2.5 2.5 2.5z"/></svg>
+            Gizmo-supervised, Gizmo-certified
+        </div>
+    </div>
+</div>
+
+<main>
+
+<!-- ══════════════════════════════════════════════════
+     HOW IT WORKS
+══════════════════════════════════════════════════ -->
+<section class="section how-bg">
+    <div class="section-inner">
+        <div class="rv">
+            <span class="sec-label">Simple Process</span>
+            <h2 style="margin-bottom:.75rem">Done Before Lunch.</h2>
+            <p class="sec-sub">No scheduling apps, no phone trees, no waiting on hold. Just a real person who responds fast.</p>
+        </div>
+        <div class="steps">
+            <div class="step s1 rv d1">
+                <div class="step-n">1</div>
+                <div class="step-content">
+                    <h3>Text a Photo</h3>
+                    <p>Snap a picture of what you need gone and text it to <strong>(916) 546-8537</strong>. No app to download, no form to fill out. Just a text.</p>
+                </div>
+            </div>
+            <div class="step s2 rv d2">
+                <div class="step-n">2</div>
+                <div class="step-content">
+                    <h3>Get Your Quote</h3>
+                    <p>We reply with a clear, flat-rate price, usually within the hour. No surprise fees, no fuel surcharges, no asterisks.</p>
+                </div>
+            </div>
+            <div class="step s3 rv d3">
+                <div class="step-n">3</div>
+                <div class="step-content">
+                    <h3>We Fetch It</h3>
+                    <p>We show up on time, haul everything out, and sweep the area clean before we leave. Gizmo supervises from the cab.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     PRICING
+══════════════════════════════════════════════════ -->
+<section class="section pricing-bg">
+    <div class="section-inner">
+        <div class="rv">
+            <span class="sec-label">Upfront Pricing</span>
+            <h2 style="margin-bottom:.75rem">No Guessing. No Games.</h2>
+            <p class="sec-sub">Pick the size that fits your job. We'll confirm the exact price after seeing your photo, before we touch a thing.</p>
+        </div>
+        <div class="pricing-grid">
+            <div class="price-card rv d1">
+                <div class="price-badge">The Terrier</div>
+                <div class="price-emoji">🐾</div>
+                <div class="price-tier">Minimum Load</div>
+                <div class="price-big">
+                    <span class="price-from">Starting at</span>
+                    $90
+                </div>
+                <div class="price-size">Small pickup load</div>
+                <p class="price-desc">A single piece of furniture, a pile of yard debris, or a few bulky items that need to disappear. Fast and affordable.</p>
+            </div>
+            <div class="price-card featured rv d2">
+                <div class="price-badge">The Retriever</div>
+                <div class="price-emoji">🐕</div>
+                <div class="price-tier">Half Truck Load</div>
+                <div class="price-big">
+                    <span class="price-from">Starting at</span>
+                    $150
+                </div>
+                <div class="price-size">Half-load · Most popular</div>
+                <p class="price-desc">Garage cleanouts, old mattresses, large yard waste piles. This handles most jobs we take on. Great value.</p>
+            </div>
+            <div class="price-card rv d3">
+                <div class="price-badge">The Great Dane</div>
+                <div class="price-emoji">🦮</div>
+                <div class="price-tier">Full Truck Load</div>
+                <div class="price-big">
+                    <span class="price-from">Starting at</span>
+                    $195
+                </div>
+                <div class="price-size">Full truck · Best value</div>
+                <p class="price-desc">Multi-room cleanouts, major hauls, or anything that fills the truck. Cleared in a single trip at the best rate.</p>
+            </div>
+        </div>
+        <p class="price-footnote rv">Not sure what size you need? <strong>Just text us a photo</strong>, we'll tell you exactly what it'll run.</p>
+    </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     COMPARE
+══════════════════════════════════════════════════ -->
+<section class="section compare-bg">
+    <div class="section-inner">
+        <div class="rv">
+            <span class="sec-label">Why Go Local</span>
+            <h2 style="margin-bottom:.75rem">Skip the Corporate Crew.</h2>
+            <p class="sec-sub">The big hauling companies get the job done. We just do it faster, cheaper, and with a better dog.</p>
+        </div>
+        <div class="compare-wrap rv">
+            <table class="compare-table">
+                <thead>
+                    <tr>
+                        <th class="col-attr"></th>
+                        <th class="col-us">Go Fetch, Gizmo! 🐾</th>
+                        <th class="col-them">The Big Guys</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Quote turnaround</td>
+                        <td><span class="win"><svg width="15" height="15" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>Under 1 hour</span></td>
+                        <td><span class="lose">24–48 hours</span></td>
+                    </tr>
+                    <tr>
+                        <td>Hidden fees</td>
+                        <td><span class="win"><svg width="15" height="15" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>None. Flat rate.</span></td>
+                        <td><span class="lose">Fuel charges, access fees…</span></td>
+                    </tr>
+                    <tr>
+                        <td>Who shows up</td>
+                        <td><span class="win"><svg width="15" height="15" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>Brandon, your neighbor</span></td>
+                        <td><span class="lose">Whoever's available</span></td>
+                    </tr>
+                    <tr>
+                        <td>Flexible pricing options</td>
+                        <td><span class="win"><svg width="15" height="15" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>Standby discount available</span></td>
+                        <td><span class="lose">Take it or leave it</span></td>
+                    </tr>
+                    <tr>
+                        <td>On-site supervision</td>
+                        <td><span class="win"><svg width="15" height="15" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>Gizmo's on it</span></td>
+                        <td><span class="lose">Tragically, no dog</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     SERVICES
+══════════════════════════════════════════════════ -->
+<section class="section services-bg">
+    <div class="section-inner">
+        <div class="rv">
+            <span class="sec-label">What We Haul</span>
+            <h2 style="margin-bottom:.75rem">If It's In Your Way, We'll Take It.</h2>
+            <p class="sec-sub">Most jobs are same-day or next-day. Text a photo to get started.</p>
+        </div>
+        <div class="services-grid">
+            <div class="service-card rv d1">
+                <div class="svc-icon">
+                    <svg viewBox="0 0 24 24"><path d="M15 4V3H9v1H4v2h1v13c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V6h1V4h-5zm2 15H7V6h10v13zM9 8h2v9H9zm4 0h2v9h-2z"/></svg>
+                </div>
+                <h3>Junk Removal</h3>
+                <p>Old furniture, appliances, garage clutter, busted electronics. If it's broken, unwanted, or just in the way.. it's as good as gone.</p>
+            </div>
+            <div class="service-card rv d2">
+                <div class="svc-icon">
+                    <svg viewBox="0 0 24 24"><path d="M17 8C8 10 5.9 16.17 3.82 21.34L5.71 22l1-2.3A4.49 4.49 0 008 20C19 20 22 3 22 3c-1 2-8 2-8 2s-2-5 2-5 0 0 0 0zM6 20.34C4.94 17.77 7.95 13 13 10.65c-1.53 2-2.43 4.24-3 6.35H6z"/></svg>
+                </div>
+                <h3>Yard Waste</h3>
+                <p>Brush piles, bagged leaves, trimmings, and green waste cleared out fast. Leave the yard clean and ready for whatever comes next.</p>
+            </div>
+            <div class="service-card rv d3">
+                <div class="svc-icon">
+                    <svg viewBox="0 0 24 24"><path d="M21 16.5c0 .38-.21.71-.53.88l-7.9 4.44c-.16.12-.36.18-.57.18-.21 0-.41-.06-.57-.18l-7.9-4.44A.991.991 0 0 1 3 16.5v-9c0-.38.21-.71.53-.88l7.9-4.44c.16-.12.36-.18.57-.18.21 0 .41.06.57.18l7.9 4.44c.32.17.53.5.53.88v9zM12 4.15L6.04 7.5L12 10.85l5.96-3.35L12 4.15zM5 15.91l6 3.38v-6.71L5 9.21v6.7zM19 15.91v-6.7l-6 3.37v6.71l6-3.38z"/></svg>
+                </div>
+                <h3>Local Deliveries</h3>
+                <p>Bought a couch, patio set, or appliance that won't fit in your car? We'll pick it up and bring it straight to your door.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     STANDBY DISCOUNT
+══════════════════════════════════════════════════ -->
+<div class="standby-wrap">
+    <div class="standby-inner">
+        <div class="rv">
+            <span class="standby-chip">For the Patient Ones</span>
+            <h2 class="display standby-title">The Standby Discount.</h2>
+            <p class="standby-body">Not in a rush? Let us hold your job until we're already running a route in your neighborhood. When we roll through, we add yours to the run and knock money off the price for the flexibility. A win for you, a win for us.</p>
+        </div>
+        <div class="standby-steps rv d2">
+            <div class="sb-step">
+                <div class="sb-num">1</div>
+                <p>When you request your quote, just let us know you're flexible on timing.</p>
+            </div>
+            <div class="sb-step">
+                <div class="sb-num">2</div>
+                <p>We put you on standby and text you when we're headed your way.</p>
+            </div>
+            <div class="sb-step">
+                <div class="sb-num">3</div>
+                <p>We show up, haul it out, and you pay a lower rate. Everyone wins.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     FAQ
+══════════════════════════════════════════════════ -->
+<section class="section faq-bg">
+    <div class="section-inner">
+        <div class="rv" style="text-align:center;margin-bottom:2.75rem">
+            <span class="sec-label">Got Questions?</span>
+            <h2>Common Questions</h2>
+        </div>
+        <div class="faq-list">
+            <div class="faq-item rv d1">
+                <button class="faq-q">
+                    What items are you unable to take?
+                    <svg class="faq-chev" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div class="faq-a">
+                    <div class="faq-a-inner">We can't legally transport hazardous materials such as wet paint, chemicals, medical waste, propane tanks, and similar items are off the list. Basically everything else is fair game. If you're unsure about something specific, just text us and we'll let you know upfront.</div>
+                </div>
+            </div>
+            <div class="faq-item rv d2">
+                <button class="faq-q">
+                    Do I need to be home for the pickup?
+                    <svg class="faq-chev" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div class="faq-a">
+                    <div class="faq-a-inner">Nope. As long as the items are accessible outside and we've agreed on the price, we can handle the pickup while you're at work or running errands. We'll text you when we're done and when payment is ready.</div>
+                </div>
+            </div>
+            <div class="faq-item rv d3">
+                <button class="faq-q">
+                    How do I pay?
+                    <svg class="faq-chev" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div class="faq-a">
+                    <div class="faq-a-inner">We keep it simple: cash, Venmo, Zelle, or all major credit cards. Processed right from our phone when the job is done. No invoicing, no waiting around.</div>
+                </div>
+            </div>
+            <div class="faq-item rv d4">
+                <button class="faq-q">
+                    How quickly can you come out?
+                    <svg class="faq-chev" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div class="faq-a">
+                    <div class="faq-a-inner">Most jobs are scheduled same day or next day. We'll reply to your text within the hour and find a time that works for you. Need something done ASAP? Just say so in the message and we'll do our best to make it happen.</div>
+                </div>
+            </div>
+            <div class="faq-item rv d4">
+                <button class="faq-q">
+                    What areas do you serve?
+                    <svg class="faq-chev" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div class="faq-a">
+                    <div class="faq-a-inner">We're based in Citrus Heights and serve the surrounding Sacramento suburbs: Carmichael, Fair Oaks, Rancho Cordova, Roseville, Folsom, and nearby areas. Not sure if we cover your neighborhood? Just ask and we'll let you know.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+</main>
+
+<!-- ══════════════════════════════════════════════════
+     FOOTER CTA
+══════════════════════════════════════════════════ -->
+<footer class="site-footer">
+    <div class="footer-inner">
+        
+        <h2 class="display footer-headline">Ready to Clear Your Space?</h2>
+        <p class="footer-sub">Text a photo of what you need gone, we'll have a price back to you in under an hour.</p>
+
+        <div class="footer-cta-row">
+            <a href="sms:9165468537" class="btn-primary">
+                <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+                Text for an Instant Quote
+            </a>
+            <a href="tel:9165468537" class="btn-call" style="border-color:rgba(255,255,255,.25);">(916) 546-8537</a>
+        </div>
+
+        <hr class="footer-hr">
+
+        <p class="area-label">Proudly Serving</p>
+        <div class="area-tags">
+            <span class="area-tag">Citrus Heights</span>
+            <span class="area-tag">Carmichael</span>
+            <span class="area-tag">Fair Oaks</span>
+            <span class="area-tag">Rancho Cordova</span>
+            <span class="area-tag">Roseville</span>
+            <span class="area-tag">Folsom</span>
+            <span class="area-tag">Sacramento</span>
+        </div>
+
+        <p class="footer-copy">&copy; 2026 Go Fetch, Gizmo! &nbsp;·&nbsp; All rights reserved.</p>
+    </div>
+</footer>
+
+<script>
+    /* ── Scroll reveal ── */
+    const obs = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+            if (e.isIntersecting) { e.target.classList.add('in'); obs.unobserve(e.target); }
+        });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('.rv').forEach(el => obs.observe(el));
+
+    /* Hero reveals instantly */
+    document.querySelectorAll('.hero .rv').forEach((el, i) => {
+        setTimeout(() => el.classList.add('in'), 80 + i * 60);
+    });
+
+    /* ── Sticky header shadow ── */
+    const hdr = document.getElementById('js-header');
+    window.addEventListener('scroll', () => hdr.classList.toggle('scrolled', scrollY > 24), { passive:true });
+
+    /* ── FAQ accordion ── */
+    document.querySelectorAll('.faq-q').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const item = btn.closest('.faq-item');
+            const wasOpen = item.classList.contains('open');
+            document.querySelectorAll('.faq-item.open').forEach(i => i.classList.remove('open'));
+            if (!wasOpen) item.classList.add('open');
+        });
+    });
+</script>
+<script src="/estimator.js"></script>
+
+</body>
+</html>

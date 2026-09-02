@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Go Fetch, Gizmo! | Command Center & CRM</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/crm.css">
+</head>
+<body>
+
+    <!-- TOP HEADER -->
+    <header class="crm-header">
+        <a href="/crm" class="crm-brand">
+            <div class="crm-logo-badge">🐕</div>
+            <div class="crm-brand-text">
+                <h1>Go Fetch, Gizmo!</h1>
+                <span><span class="live-indicator"></span> CRM & Dispatch Command</span>
+            </div>
+        </a>
+
+        <!-- NAV TABS -->
+        <nav class="crm-nav">
+            <button class="nav-tab active" data-tab="tab-dispatch">📋 Dispatch Board</button>
+            <button class="nav-tab" data-tab="tab-inbox">💬 2-Way SMS Inbox</button>
+            <button class="nav-tab" data-tab="tab-customers">👥 Customer Directory</button>
+            <button class="nav-tab" data-tab="tab-reviews">⭐ 5★ Reviews</button>
+            <button class="nav-tab" data-tab="tab-b2b">💼 B2B Whale Engine</button>
+        </nav>
+
+        <!-- SUPABASE AUTH USER PILL -->
+        <div id="authProfileBox" style="display:none;align-items:center;gap:0.75rem;margin-left:auto">
+            <span id="authUserEmail" style="font-size:0.8rem;color:var(--text-muted);font-weight:600"></span>
+            <button type="button" id="btnAuthLogout" class="btn-card" style="padding:4px 10px;font-size:0.75rem">Logout 🚪</button>
+        </div>
+    </header>
+
+    <!-- KPI STATS BAR -->
+    <section class="kpi-bar" id="kpiBar">
+        <div class="kpi-card">
+            <span class="kpi-label">Gross Revenue</span>
+            <span class="kpi-val green" id="kpiRevenue">$0</span>
+        </div>
+        <div class="kpi-card">
+            <span class="kpi-label">Active Jobs</span>
+            <span class="kpi-val orange" id="kpiActive">0</span>
+        </div>
+        <div class="kpi-card">
+            <span class="kpi-label">Completed Jobs</span>
+            <span class="kpi-val" id="kpiCompleted">0</span>
+        </div>
+        <div class="kpi-card">
+            <span class="kpi-label">Average Ticket</span>
+            <span class="kpi-val" id="kpiAvgTicket">$165</span>
+        </div>
+        <div class="kpi-card">
+            <span class="kpi-label">Standby Route Jobs</span>
+            <span class="kpi-val gold" id="kpiStandby">0</span>
+        </div>
+        <div class="kpi-card">
+            <span class="kpi-label">Gizmo Treats Earned</span>
+            <span class="kpi-val gold" id="kpiTreats">🐶 0</span>
+        </div>
+    </section>
+
+    <!-- MAIN CRM CONTENT -->
+    <main class="crm-main">
+
+        <!-- ================= TAB 1: DISPATCH & JOB KANBAN ================= -->
+        <div class="tab-pane active" id="tab-dispatch">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem">
+                <h2 style="font-family:var(--font-heading);font-size:1.8rem;text-transform:uppercase">Live Dispatch Pipeline</h2>
+                <button class="btn-card primary" id="btnManualLead" style="max-width:180px">+ New Manual Job</button>
+            </div>
+
+            <div class="kanban-board">
+                <!-- Column: New Leads -->
+                <div class="kanban-col" data-status="new">
+                    <div class="col-header">
+                        <span class="col-title">📥 New Leads</span>
+                        <span class="col-count" id="count-new">0</span>
+                    </div>
+                    <div class="job-cards-list" id="list-new"></div>
+                </div>
+
+                <!-- Column: Quoted -->
+                <div class="kanban-col" data-status="quoted">
+                    <div class="col-header">
+                        <span class="col-title">💬 Quoted</span>
+                        <span class="col-count" id="count-quoted">0</span>
+                    </div>
+                    <div class="job-cards-list" id="list-quoted"></div>
+                </div>
+
+                <!-- Column: Scheduled -->
+                <div class="kanban-col" data-status="scheduled">
+                    <div class="col-header">
+                        <span class="col-title">📅 Scheduled</span>
+                        <span class="col-count" id="count-scheduled">0</span>
+                    </div>
+                    <div class="job-cards-list" id="list-scheduled"></div>
+                </div>
+
+                <!-- Column: En Route -->
+                <div class="kanban-col" data-status="en_route">
+                    <div class="col-header">
+                        <span class="col-title">🚚 En Route</span>
+                        <span class="col-count" id="count-en_route">0</span>
+                    </div>
+                    <div class="job-cards-list" id="list-en_route"></div>
+                </div>
+
+                <!-- Column: Completed -->
+                <div class="kanban-col" data-status="completed">
+                    <div class="col-header">
+                        <span class="col-title">✅ Completed</span>
+                        <span class="col-count" id="count-completed">0</span>
+                    </div>
+                    <div class="job-cards-list" id="list-completed"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= TAB 2: 2-WAY LIVE SMS INBOX ================= -->
+        <div class="tab-pane" id="tab-inbox">
+            <div class="inbox-layout">
+                <!-- Thread list -->
+                <div class="thread-list">
+                    <div style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+                        <span style="font-family:var(--font-heading);font-size:1.05rem;text-transform:uppercase;color:var(--text-muted)">Conversations</span>
+                        <button class="btn-card primary" id="btnNewThread" style="padding:4px 10px;font-size:0.75rem;max-width:110px">+ New SMS</button>
+                    </div>
+                    <div id="threadList">
+                        <div style="padding:1rem;color:var(--text-muted);text-align:center">Loading message threads...</div>
+                    </div>
+                </div>
+
+                <!-- Chat conversation view -->
+                <div class="chat-panel">
+                    <div class="chat-header">
+                        <div>
+                            <div style="font-weight:700;font-size:1.1rem" id="chatActiveContact">Select a conversation</div>
+                            <div style="font-size:0.8rem;color:var(--text-muted)" id="chatActivePhone">No phone selected</div>
+                        </div>
+                        <div id="chatActions" style="display:flex;gap:0.5rem"></div>
+                    </div>
+
+                    <div class="chat-body" id="chatMessages">
+                        <div style="text-align:center;color:var(--text-muted);margin:auto">Select a customer thread on the left to view messages and junk photos.</div>
+                    </div>
+
+                    <!-- Preset Quick Replies -->
+                    <div class="chat-presets">
+                        <span class="preset-chip" onclick="applyPreset('Hey! Brandon & Gizmo here 🐾 On my way now, should be there in ~15 mins!')">🚚 15 Mins Out</span>
+                        <span class="preset-chip" onclick="applyPreset('Thanks for the photo! We can haul this out tomorrow for $150 flat. Does morning work for you?')">💵 $150 Quote</span>
+                        <span class="preset-chip" onclick="applyPreset('You are confirmed for the Standby Route! We will text you 30 mins before we roll through!')">⚡ Standby Confirmed</span>
+                        <span class="preset-chip" onclick="applyPreset('All swept clean and hauled away! Gizmo says thank you! 🐾')">✅ Job Done</span>
+                    </div>
+
+                    <!-- Input composer -->
+                    <form class="chat-composer" id="chatComposer">
+                        <input type="text" class="composer-input" id="composerText" placeholder="Type SMS reply to customer..." required>
+                        <button type="submit" class="btn-send">Send SMS</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= TAB 3: CUSTOMER DIRECTORY & LTV ================= -->
+        <div class="tab-pane" id="tab-customers">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap;gap:1rem">
+                <div>
+                    <h2 style="font-family:var(--font-heading);font-size:1.8rem;text-transform:uppercase">Customer LTV Directory</h2>
+                    <p style="color:var(--text-muted);font-size:0.9rem">Lifetime value, gate codes, notes, and past job histories</p>
+                </div>
+                <input type="text" id="custSearch" placeholder="Search by name, phone, or street..." style="background:var(--bg-card);border:1px solid var(--border);color:#FFF;padding:8px 14px;border-radius:6px;width:280px">
+            </div>
+
+            <div class="data-table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Customer Name</th>
+                            <th>Phone</th>
+                            <th>Location / Address</th>
+                            <th>Type</th>
+                            <th>Total Jobs</th>
+                            <th>Lifetime Value (LTV)</th>
+                            <th>Gate Code / Notes</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="customersTableBody">
+                        <tr><td colspan="8" style="text-align:center">Loading customer accounts...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ================= TAB 4: REVIEWS & REPUTATION ================= -->
+        <div class="tab-pane" id="tab-reviews">
+            <div style="display:grid;grid-template-columns:1fr 1.5fr;gap:1.5rem">
+                <div>
+                    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:1.5rem;margin-bottom:1.5rem">
+                        <h3 style="font-family:var(--font-heading);font-size:1.4rem;text-transform:uppercase;color:var(--gold);margin-bottom:0.75rem">⭐ Google Review Engine</h3>
+                        <p style="color:var(--text-muted);font-size:0.92rem;line-height:1.6;margin-bottom:1rem">
+                            Whenever a job is marked <strong>"Completed"</strong>, our engine automatically fires the customized Google Review SMS with the Gizmo treat hook.
+                        </p>
+                        <div style="background:rgba(245,158,11,0.1);border:1px solid var(--gold);padding:1rem;border-radius:8px;font-size:0.88rem;color:#FDF8F0;margin-bottom:1.25rem">
+                            <strong>Gizmo Treat Counter:</strong> <span id="revTreatsCount">0 treats earned</span> 🥓🐶<br>
+                            <em>(Every 5-star review earns Gizmo an extra bacon treat!)</em>
+                        </div>
+                        <div style="display:flex;gap:0.75rem">
+                            <button class="btn-card primary" id="btnManualReview" style="font-size:0.85rem">✉️ Send Review SMS Manually</button>
+                            <a href="https://g.page/r/gofetchgizmo/review" target="_blank" class="btn-card" style="font-size:0.85rem;display:flex;align-items:center;justify-content:center;gap:4px">⭐ Open Review Link ↗</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="data-table-wrap">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Customer</th>
+                                <th>Phone</th>
+                                <th>Sent Date</th>
+                                <th>Status</th>
+                                <th>Rating</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reviewsTableBody">
+                            <tr><td colspan="5" style="text-align:center">Loading review request logs...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= TAB 5: B2B WHALE ENGINE ================= -->
+        <div class="tab-pane" id="tab-b2b">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap;gap:1rem">
+                <div>
+                    <h2 style="font-family:var(--font-heading);font-size:1.8rem;text-transform:uppercase">B2B Whale Account Outreach</h2>
+                    <p style="color:var(--text-muted);font-size:0.9rem">Property Managers, Realtors & Storage Facilities in Sacramento / Citrus Heights</p>
+                </div>
+                <div style="display:flex;gap:0.6rem">
+                    <button class="btn-card" id="btnAddB2B" style="max-width:160px">+ Add B2B Lead</button>
+                    <button class="btn-card primary" id="btnLaunchB2B" style="max-width:200px">🚀 Launch Outbound</button>
+                </div>
+            </div>
+
+            <div class="data-table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Company</th>
+                            <th>Contact</th>
+                            <th>Category</th>
+                            <th>City</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="b2bTableBody">
+                        <tr><td colspan="8" style="text-align:center">Loading B2B accounts...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- 1. MANUAL JOB CREATION MODAL -->
+    <div class="crm-modal" id="modalManualJob">
+        <div class="modal-content large">
+            <h3 class="modal-title">+ New Manual Hauling Job 🐾</h3>
+            <p class="modal-subtitle">Quickly book a phone lead or in-person request onto the dispatch board.</p>
+            <form id="formManualJob">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Customer Name</label>
+                        <input type="text" class="composer-input" id="mjName" placeholder="e.g. Sarah Jenkins" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Phone Number</label>
+                        <input type="tel" class="composer-input" id="mjPhone" placeholder="(916) 555-0199" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Street Address</label>
+                        <input type="text" class="composer-input" id="mjAddress" placeholder="123 Oak St, Citrus Heights">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Zip Code</label>
+                        <input type="text" class="composer-input" id="mjZip" placeholder="95610" value="95610">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Load Size Tier</label>
+                        <select class="form-select" id="mjTier">
+                            <option value="terrier">🐾 The Terrier ($90 - $120 min)</option>
+                            <option value="retriever" selected>🐕 The Retriever ($150 - $180 half)</option>
+                            <option value="great_dane">🦮 The Great Dane ($195 - $250 full)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Price Range ($)</label>
+                        <div style="display:flex;gap:0.5rem;align-items:center">
+                            <input type="number" class="composer-input" id="mjPriceMin" placeholder="150" value="150" required>
+                            <span style="color:var(--text-muted)">to</span>
+                            <input type="number" class="composer-input" id="mjPriceMax" placeholder="180" value="180" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Preferred Date</label>
+                        <input type="date" class="composer-input" id="mjDate">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Arrival Window</label>
+                        <input type="text" class="composer-input" id="mjTime" placeholder="e.g. 10:00 AM - 12:00 PM">
+                    </div>
+                    <div class="form-group full">
+                        <label class="form-label">Special Notes / Items Description</label>
+                        <textarea class="form-textarea" id="mjNotes" rows="2" placeholder="e.g. Old couch and dresser in garage. Side gate is unlocked."></textarea>
+                    </div>
+                    <div class="form-group full">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.9rem">
+                            <input type="checkbox" id="mjStandby">
+                            <span>⚡ Standby Route Opt-In ($20 OFF Discount)</span>
+                        </label>
+                    </div>
+                </div>
+                <div style="display:flex;gap:0.75rem;justify-content:flex-end">
+                    <button type="button" class="btn-card" onclick="closeModal('modalManualJob')">Cancel</button>
+                    <button type="submit" class="btn-card primary">Create & Dispatch Job 🐾</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 2. EDIT JOB MODAL -->
+    <div class="crm-modal" id="modalEditJob">
+        <div class="modal-content large">
+            <h3 class="modal-title">Job Details & Dispatch 🚚</h3>
+            <p class="modal-subtitle">Update schedule, pricing, or dispatch status.</p>
+            <form id="formEditJob">
+                <input type="hidden" id="editJobId">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Customer Name</label>
+                        <input type="text" class="composer-input" id="ejName" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Phone Number</label>
+                        <input type="tel" class="composer-input" id="ejPhone" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Status</label>
+                        <select class="form-select" id="ejStatus">
+                            <option value="new">📥 New Lead</option>
+                            <option value="quoted">💬 Quoted</option>
+                            <option value="scheduled">📅 Scheduled</option>
+                            <option value="en_route">🚚 En Route</option>
+                            <option value="completed">✅ Completed</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Address / Location</label>
+                        <input type="text" class="composer-input" id="ejAddress">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Arrival Window</label>
+                        <input type="text" class="composer-input" id="ejTime" placeholder="e.g. 2:00 PM - 4:00 PM">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Preferred Date</label>
+                        <input type="date" class="composer-input" id="ejDate">
+                    </div>
+                    <div class="form-group full">
+                        <label class="form-label">Job Notes / Items</label>
+                        <textarea class="form-textarea" id="ejNotes" rows="2"></textarea>
+                    </div>
+                    <div class="form-group full" id="ejPhotosContainer" style="display:none">
+                        <label class="form-label">Uploaded Photos (Click to Zoom)</label>
+                        <div id="ejPhotosList" style="display:flex;gap:8px;overflow-x:auto;padding-top:4px"></div>
+                    </div>
+                </div>
+                <div style="display:flex;gap:0.75rem;justify-content:space-between;align-items:center">
+                    <button type="button" class="btn-card" style="background:#DC2626;border-color:#DC2626;color:#FFF" onclick="handleDeleteJob()">🗑 Delete Job</button>
+                    <div style="display:flex;gap:0.75rem">
+                        <button type="button" class="btn-card" onclick="closeModal('modalEditJob')">Cancel</button>
+                        <button type="submit" class="btn-card green">Save Changes</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 3. COMPLETE JOB MODAL -->
+    <div class="crm-modal" id="modalComplete">
+        <div class="modal-content">
+            <h3 class="modal-title">Complete Job & Send Review SMS 🐾</h3>
+            <p class="modal-subtitle">
+                Confirm final payment collected. This will log revenue and automatically send the customer a Google Review SMS.
+            </p>
+            <form id="formCompleteJob">
+                <input type="hidden" id="completeJobId">
+                <label class="form-label" style="display:block;margin-bottom:0.4rem">Final Amount Collected ($)</label>
+                <input type="number" id="finalPriceInput" class="composer-input" style="width:100%;margin-bottom:1.25rem" required>
+                <div style="display:flex;gap:0.75rem">
+                    <button type="button" class="btn-card" onclick="closeModal('modalComplete')">Cancel</button>
+                    <button type="submit" class="btn-card green">Confirm & Dispatch Review SMS ⭐</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 4. CUSTOMER PROFILE 360 & LTV MODAL -->
+    <div class="crm-modal" id="modalCustomerDetail">
+        <div class="modal-content large">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+                <div>
+                    <h3 class="modal-title" id="cdName">Customer Profile</h3>
+                    <p class="modal-subtitle" id="cdPhone">Phone: (916) 555-0100</p>
+                </div>
+                <div id="cdLtvBadge" style="font-family:var(--font-heading);font-size:1.5rem;color:var(--green);font-weight:900">
+                    LTV: $0
+                </div>
+            </div>
+
+            <form id="formCustomerNotes" style="margin-bottom:1.5rem">
+                <input type="hidden" id="cdCustomerId">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Gate / Lockbox Code</label>
+                        <input type="text" class="composer-input" id="cdGateCode" placeholder="e.g. #4821 or Key under mat">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Customer Type</label>
+                        <select class="form-select" id="cdType">
+                            <option value="residential">Residential Neighbor</option>
+                            <option value="b2b_property_manager">B2B Property Manager</option>
+                            <option value="b2b_realtor">B2B Realtor</option>
+                            <option value="repeat_vip">Repeat VIP</option>
+                        </select>
+                    </div>
+                    <div class="form-group full">
+                        <label class="form-label">Property & Customer Notes</label>
+                        <textarea class="form-textarea" id="cdNotes" rows="2" placeholder="e.g. Always text before arrival. Dog friendly."></textarea>
+                    </div>
+                </div>
+                <div style="display:flex;justify-content:flex-end">
+                    <button type="submit" class="btn-card green" style="max-width:140px">Save Notes</button>
+                </div>
+            </form>
+
+            <h4 style="font-family:var(--font-heading);font-size:1.2rem;text-transform:uppercase;color:var(--orange-light);margin-bottom:0.75rem">Job History Timeline</h4>
+            <div id="cdJobHistory" style="max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:0.5rem">
+                <div style="color:var(--text-muted);font-size:0.85rem">Loading job records...</div>
+            </div>
+
+            <div style="display:flex;gap:0.75rem;justify-content:flex-end;margin-top:1.5rem">
+                <button type="button" class="btn-card primary" id="cdBtnText">💬 Text Customer</button>
+                <button type="button" class="btn-card" onclick="closeModal('modalCustomerDetail')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. NEW SMS THREAD MODAL -->
+    <div class="crm-modal" id="modalNewThread">
+        <div class="modal-content">
+            <h3 class="modal-title">💬 Start SMS Conversation</h3>
+            <p class="modal-subtitle">Send an outbound text to any neighbor or client.</p>
+            <form id="formNewThread">
+                <div class="form-group" style="margin-bottom:1rem">
+                    <label class="form-label">Phone Number</label>
+                    <input type="tel" class="composer-input" id="ntPhone" placeholder="e.g. +19165468537" required>
+                </div>
+                <div class="form-group" style="margin-bottom:1.25rem">
+                    <label class="form-label">Message</label>
+                    <textarea class="form-textarea" id="ntBody" rows="3" placeholder="Hey! Brandon here from Go Fetch, Gizmo! 🐾" required></textarea>
+                </div>
+                <div style="display:flex;gap:0.75rem;justify-content:flex-end">
+                    <button type="button" class="btn-card" onclick="closeModal('modalNewThread')">Cancel</button>
+                    <button type="submit" class="btn-card primary">Send Message →</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 6. MANUAL REVIEW SMS MODAL -->
+    <div class="crm-modal" id="modalSendReview">
+        <div class="modal-content">
+            <h3 class="modal-title">⭐ Send Google Review Request</h3>
+            <p class="modal-subtitle">Dispatch the 5-star Google review SMS with the Gizmo treat hook.</p>
+            <form id="formSendReview">
+                <div class="form-group" style="margin-bottom:1rem">
+                    <label class="form-label">Customer Name</label>
+                    <input type="text" class="composer-input" id="srName" placeholder="e.g. David" required>
+                </div>
+                <div class="form-group" style="margin-bottom:1.25rem">
+                    <label class="form-label">Phone Number</label>
+                    <input type="tel" class="composer-input" id="srPhone" placeholder="(916) 555-0199" required>
+                </div>
+                <div style="display:flex;gap:0.75rem;justify-content:flex-end">
+                    <button type="button" class="btn-card" onclick="closeModal('modalSendReview')">Cancel</button>
+                    <button type="submit" class="btn-card green">Send Review SMS ⭐</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 7. B2B PITCH PREVIEW & SEND MODAL -->
+    <div class="crm-modal" id="modalB2BPitch">
+        <div class="modal-content large">
+            <h3 class="modal-title" id="bpTitle">B2B Partnership Pitch</h3>
+            <p class="modal-subtitle" id="bpSubtitle">Review and customize the tailored email before dispatching.</p>
+            <form id="formSendB2BPitch">
+                <input type="hidden" id="bpProspectId">
+                <div class="form-group" style="margin-bottom:1rem">
+                    <label class="form-label">Subject Line</label>
+                    <input type="text" class="composer-input" id="bpSubject" required>
+                </div>
+                <div class="form-group" style="margin-bottom:1.25rem">
+                    <label class="form-label">Email Body</label>
+                    <textarea class="form-textarea" id="bpBody" rows="8" required></textarea>
+                </div>
+                <div style="display:flex;gap:0.75rem;justify-content:flex-end">
+                    <button type="button" class="btn-card" onclick="closeModal('modalB2BPitch')">Cancel</button>
+                    <button type="submit" class="btn-card primary">Send Pitch Email 🚀</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 8. ADD NEW B2B PROSPECT MODAL -->
+    <div class="crm-modal" id="modalNewB2B">
+        <div class="modal-content">
+            <h3 class="modal-title">+ Add Commercial B2B Lead</h3>
+            <p class="modal-subtitle">Add a Property Management or Real Estate firm.</p>
+            <form id="formNewB2B">
+                <div class="form-group" style="margin-bottom:0.75rem">
+                    <label class="form-label">Company Name</label>
+                    <input type="text" class="composer-input" id="nbCompany" placeholder="e.g. Capital City Property Management" required>
+                </div>
+                <div class="form-group" style="margin-bottom:0.75rem">
+                    <label class="form-label">Contact Person</label>
+                    <input type="text" class="composer-input" id="nbContact" placeholder="e.g. Jessica Miller">
+                </div>
+                <div class="form-group" style="margin-bottom:0.75rem">
+                    <label class="form-label">Email Address</label>
+                    <input type="email" class="composer-input" id="nbEmail" placeholder="jessica@capitalprop.com" required>
+                </div>
+                <div class="form-group" style="margin-bottom:0.75rem">
+                    <label class="form-label">Phone</label>
+                    <input type="tel" class="composer-input" id="nbPhone" placeholder="(916) 555-4422">
+                </div>
+                <div class="form-group" style="margin-bottom:1.25rem">
+                    <label class="form-label">Category</label>
+                    <select class="form-select" id="nbCategory">
+                        <option value="Property Management">Property Management</option>
+                        <option value="Real Estate">Real Estate</option>
+                        <option value="Storage Facility">Storage Facility</option>
+                    </select>
+                </div>
+                <div style="display:flex;gap:0.75rem;justify-content:flex-end">
+                    <button type="button" class="btn-card" onclick="closeModal('modalNewB2B')">Cancel</button>
+                    <button type="submit" class="btn-card primary">Save Lead</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 9. PHOTO LIGHTBOX MODAL -->
+    <div class="crm-modal" id="modalPhotoViewer" onclick="closeModal('modalPhotoViewer')">
+        <div class="modal-content" style="max-width:800px;background:transparent;border:none;padding:0;box-shadow:none;text-align:center">
+            <img src="" id="photoViewerImg" class="lightbox-img">
+        </div>
+    </div>
+
+    <!-- 10. CUSTOM CONFIRM MODAL (NO BROWSER DEFAULT POPUPS) -->
+    <div class="crm-modal" id="customConfirmModal">
+        <div class="popup-dialog-box" id="confirmDialogBox">
+            <div class="popup-icon" id="confirmDialogIcon">🐾</div>
+            <h3 class="popup-title" id="confirmDialogTitle">Confirm Action</h3>
+            <p class="popup-msg" id="confirmDialogMsg">Are you sure you want to proceed?</p>
+            <div class="popup-actions">
+                <button type="button" class="btn-card" id="confirmBtnCancel">Cancel</button>
+                <button type="button" class="btn-card primary" id="confirmBtnOk">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 11. CUSTOM ALERT MODAL -->
+    <div class="crm-modal" id="customAlertModal">
+        <div class="popup-dialog-box" id="alertDialogBox">
+            <div class="popup-icon" id="alertDialogIcon">🎉</div>
+            <h3 class="popup-title" id="alertDialogTitle">Notice</h3>
+            <p class="popup-msg" id="alertDialogMsg">Action completed successfully.</p>
+            <div class="popup-actions">
+                <button type="button" class="btn-card primary" id="alertBtnOk">Got It 🐾</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 12. SUPABASE AUTH MODAL -->
+    <div class="crm-modal" id="modalSupabaseAuth" style="backdrop-filter:blur(10px);background:rgba(10,12,16,0.92);z-index:99999">
+        <div class="modal-content" style="max-width:420px;text-align:center;padding:2.5rem 2rem;border:1px solid var(--border)">
+            <div style="font-size:3rem;margin-bottom:0.5rem">🐕🐾</div>
+            <h3 class="modal-title" style="font-size:1.8rem;margin-bottom:0.25rem">Dispatch Login</h3>
+            <p class="modal-subtitle" style="margin-bottom:1.5rem">Sign in with Supabase to access Go Fetch, Gizmo! Command Center</p>
+            
+            <form id="formSupabaseAuth">
+                <div class="form-group" style="text-align:left;margin-bottom:1rem">
+                    <label class="form-label">Admin Email</label>
+                    <input type="email" class="composer-input" id="authEmail" placeholder="brandon@gofetchgizmo.com" required style="width:100%">
+                </div>
+                <div class="form-group" style="text-align:left;margin-bottom:1.25rem">
+                    <label class="form-label">Password</label>
+                    <input type="password" class="composer-input" id="authPassword" placeholder="••••••••" style="width:100%">
+                </div>
+                <div id="authStatusMsg" style="font-size:0.85rem;color:var(--orange-light);margin-bottom:1rem;display:none"></div>
+                <button type="submit" class="btn-card primary" id="btnAuthSubmit" style="width:100%;padding:0.75rem;font-size:1rem;margin-bottom:0.75rem">Sign In 🔐</button>
+                <button type="button" class="btn-card" id="btnAuthMagicLink" style="width:100%;padding:0.6rem;font-size:0.85rem">Send Magic Login Link ✉️</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- FLOATING TOAST NOTIFICATION CONTAINER -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- SUPABASE JS SDK & CRM SCRIPT -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/crm.js"></script>
+</body>
+</html>
