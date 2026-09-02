@@ -136,7 +136,7 @@ async function handleApiRoute(pathname, request, env) {
       supabase_key_configured: Boolean(sbKey),
       supabase_key_length: sbKey ? sbKey.length : 0,
       supabase_key_var_name: env.SUPABASE_SERVICE_ROLE_KEY ? "SUPABASE_SERVICE_ROLE_KEY" : (env.SUPABASE_SERVICE_ROLE_KE ? "SUPABASE_SERVICE_ROLE_KE" : "missing"),
-      telegram_configured: Boolean(env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID),
+      telegram_configured: getTelegramConfig(env).isConfigured,
       gemini_configured: Boolean(env.GEMINI_API_KEY),
       supabase_test_status: testStatus,
       supabase_test_response: testBody
@@ -659,20 +659,21 @@ async function handleEnRouteJob(jobId, request, env) {
   }
 
   // 4. Telegram dispatch notification for Brandon
-  if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
+  const tg = getTelegramConfig(env);
+  let telegramSent = false;
+  if (tg.isConfigured) {
     try {
-      const cleanPhoneDigits = customerPhone.replace(/\D/g, '');
       const teleMsg = `🚚 <b>EN ROUTE ALERT DISPATCHED!</b> 🐾\n\n` +
         `👤 <b>Customer:</b> ${customerName}\n` +
         `📞 <b>Phone:</b> <code>${customerPhone}</code>\n` +
         `⏱ <b>ETA:</b> ~15 minutes\n` +
         `💬 <b>Message:</b> "${enRouteMsg}"\n` +
         `📍 <b>Status:</b> Truck is rolling!`;
-      await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      const tgRes = await fetch(`https://api.telegram.org/bot${tg.token}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          chat_id: env.TELEGRAM_CHAT_ID,
+          chat_id: tg.chatId,
           text: teleMsg,
           parse_mode: "HTML",
           reply_markup: {
@@ -684,6 +685,7 @@ async function handleEnRouteJob(jobId, request, env) {
           }
         })
       });
+      telegramSent = tgRes.ok;
     } catch (e) {
       console.error("Telegram en-route error:", e);
     }
@@ -693,7 +695,7 @@ async function handleEnRouteJob(jobId, request, env) {
     status: "success",
     job_id: jobId,
     new_status: "en_route",
-    telegram_sent: Boolean(env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID),
+    telegram_sent: telegramSent,
     message: "En-route alert dispatched to Telegram and status updated to en_route"
   });
 }
@@ -759,13 +761,14 @@ async function handleSendInboxSMS(request, env) {
       console.error("Error logging sent SMS to Supabase:", e);
     }
 
-    if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
+    const tg = getTelegramConfig(env);
+    if (tg.isConfigured) {
       try {
-        await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+        await fetch(`https://api.telegram.org/bot${tg.token}/sendMessage`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            chat_id: env.TELEGRAM_CHAT_ID,
+            chat_id: tg.chatId,
             text: `💬 <b>MESSAGE SENT FROM CRM</b>\nTo: <code>${phone}</code>\n\n${text}`,
             parse_mode: "HTML"
           })
@@ -929,6 +932,12 @@ function getSupabaseUrl(env) {
 
 function getSupabaseKey(env) {
   return env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SERVICE_ROLE_KE || "";
+}
+
+function getTelegramConfig(env) {
+  const token = env.TELEGRAM_BOT_TOKEN || "8763259433:AAEQBjWVnIoGx2Q8V_LzxNUqt3PK5DO_s_c";
+  const chatId = env.TELEGRAM_CHAT_ID || "8804602943";
+  return { token, chatId, isConfigured: Boolean(token && chatId) };
 }
 
 function jsonResponse(data, status = 200) {
