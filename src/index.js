@@ -101,10 +101,45 @@ export default {
 async function handleApiRoute(pathname, request, env) {
   // --- A. AUTH CONFIG ---
   if (pathname === "/api/auth/config" && request.method === "GET") {
+    const sbUrl = getSupabaseUrl(env);
+    const sbAnonKey = env.SUPABASE_ANON_KEY || "";
     return jsonResponse({
-      supabase_url: env.SUPABASE_URL || "",
-      supabase_anon_key: env.SUPABASE_ANON_KEY || "",
-      auth_enabled: Boolean(env.SUPABASE_URL && env.SUPABASE_ANON_KEY)
+      supabase_url: sbUrl,
+      supabase_anon_key: sbAnonKey,
+      auth_enabled: Boolean(sbUrl && sbAnonKey)
+    });
+  }
+
+  // --- DEBUG ENDPOINT ---
+  if (pathname === "/api/crm/debug" && request.method === "GET") {
+    const sbUrl = getSupabaseUrl(env);
+    const sbKey = getSupabaseKey(env);
+    let testStatus = null;
+    let testBody = null;
+    if (sbUrl && sbKey) {
+      try {
+        const res = await fetch(`${sbUrl}/rest/v1/leads?select=*&limit=1`, {
+          headers: {
+            "apikey": sbKey,
+            "Authorization": `Bearer ${sbKey}`
+          }
+        });
+        testStatus = res.status;
+        testBody = await res.text();
+      } catch (err) {
+        testStatus = 500;
+        testBody = err.message;
+      }
+    }
+    return jsonResponse({
+      supabase_url: sbUrl,
+      supabase_key_configured: Boolean(sbKey),
+      supabase_key_length: sbKey ? sbKey.length : 0,
+      supabase_key_var_name: env.SUPABASE_SERVICE_ROLE_KEY ? "SUPABASE_SERVICE_ROLE_KEY" : (env.SUPABASE_SERVICE_ROLE_KE ? "SUPABASE_SERVICE_ROLE_KE" : "missing"),
+      telegram_configured: Boolean(env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID),
+      gemini_configured: Boolean(env.GEMINI_API_KEY),
+      supabase_test_status: testStatus,
+      supabase_test_response: testBody
     });
   }
 
@@ -357,10 +392,11 @@ async function handleBooking(request, env) {
   }
 
   // 2. Save to Supabase if configured
+  const sbUrl = getSupabaseUrl(env);
   const sbKey = getSupabaseKey(env);
-  if (env.SUPABASE_URL && sbKey) {
+  if (sbUrl && sbKey) {
     try {
-      await fetch(`${env.SUPABASE_URL}/rest/v1/leads`, {
+      const res = await fetch(`${sbUrl}/rest/v1/leads`, {
         method: "POST",
         headers: {
           "apikey": sbKey,
@@ -381,6 +417,10 @@ async function handleBooking(request, env) {
           status: "new"
         })
       });
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error(`Supabase insert lead failed (${res.status}):`, errText);
+      }
     } catch (e) {
       console.error("Supabase insert lead error:", e);
     }
@@ -390,10 +430,11 @@ async function handleBooking(request, env) {
 }
 
 async function handleCrmStats(env) {
+  const sbUrl = getSupabaseUrl(env);
   const sbKey = getSupabaseKey(env);
-  if (env.SUPABASE_URL && sbKey) {
+  if (sbUrl && sbKey) {
     try {
-      const res = await fetch(`${env.SUPABASE_URL}/rest/v1/leads?select=final_price,status,standby_opt_in`, {
+      const res = await fetch(`${sbUrl}/rest/v1/leads?select=final_price,status,standby_opt_in`, {
         headers: {
           "apikey": sbKey,
           "Authorization": `Bearer ${sbKey}`
@@ -439,16 +480,19 @@ async function handleCrmStats(env) {
 }
 
 async function handleGetJobs(env) {
+  const sbUrl = getSupabaseUrl(env);
   const sbKey = getSupabaseKey(env);
-  if (env.SUPABASE_URL && sbKey) {
+  if (sbUrl && sbKey) {
     try {
-      const res = await fetch(`${env.SUPABASE_URL}/rest/v1/leads?select=*&order=id.desc`, {
+      const res = await fetch(`${sbUrl}/rest/v1/leads?select=*&order=id.desc`, {
         headers: {
           "apikey": sbKey,
           "Authorization": `Bearer ${sbKey}`
         }
       });
       if (res.ok) return jsonResponse(await res.json());
+      const errText = await res.text();
+      console.error(`Supabase get jobs failed (${res.status}):`, errText);
     } catch (e) {
       console.error("Supabase get jobs error:", e);
     }
@@ -458,10 +502,11 @@ async function handleGetJobs(env) {
 
 async function handleCreateJob(request, env) {
   const body = await request.json();
+  const sbUrl = getSupabaseUrl(env);
   const sbKey = getSupabaseKey(env);
-  if (env.SUPABASE_URL && sbKey) {
+  if (sbUrl && sbKey) {
     try {
-      const res = await fetch(`${env.SUPABASE_URL}/rest/v1/leads`, {
+      const res = await fetch(`${sbUrl}/rest/v1/leads`, {
         method: "POST",
         headers: {
           "apikey": sbKey,
@@ -475,6 +520,8 @@ async function handleCreateJob(request, env) {
         const created = await res.json();
         return jsonResponse(created[0] || { status: "created" });
       }
+      const errText = await res.text();
+      console.error(`Supabase create job failed (${res.status}):`, errText);
     } catch (e) {
       console.error("Supabase create job error:", e);
     }
@@ -483,10 +530,11 @@ async function handleCreateJob(request, env) {
 }
 
 async function handleGetSingleJob(jobId, env) {
+  const sbUrl = getSupabaseUrl(env);
   const sbKey = getSupabaseKey(env);
-  if (env.SUPABASE_URL && sbKey) {
+  if (sbUrl && sbKey) {
     try {
-      const res = await fetch(`${env.SUPABASE_URL}/rest/v1/leads?id=eq.${jobId}&select=*`, {
+      const res = await fetch(`${sbUrl}/rest/v1/leads?id=eq.${jobId}&select=*`, {
         headers: {
           "apikey": sbKey,
           "Authorization": `Bearer ${sbKey}`
@@ -505,10 +553,11 @@ async function handleGetSingleJob(jobId, env) {
 
 async function handleUpdateJob(jobId, request, env) {
   const updates = await request.json();
+  const sbUrl = getSupabaseUrl(env);
   const sbKey = getSupabaseKey(env);
-  if (env.SUPABASE_URL && sbKey) {
+  if (sbUrl && sbKey) {
     try {
-      await fetch(`${env.SUPABASE_URL}/rest/v1/leads?id=eq.${jobId}`, {
+      await fetch(`${sbUrl}/rest/v1/leads?id=eq.${jobId}`, {
         method: "PATCH",
         headers: {
           "apikey": sbKey,
@@ -527,10 +576,11 @@ async function handleUpdateJob(jobId, request, env) {
 async function handleCompleteJob(jobId, request, env) {
   const body = await request.json();
   const finalPrice = body.final_price || 150;
+  const sbUrl = getSupabaseUrl(env);
   const sbKey = getSupabaseKey(env);
-  if (env.SUPABASE_URL && sbKey) {
+  if (sbUrl && sbKey) {
     try {
-      await fetch(`${env.SUPABASE_URL}/rest/v1/leads?id=eq.${jobId}`, {
+      await fetch(`${sbUrl}/rest/v1/leads?id=eq.${jobId}`, {
         method: "PATCH",
         headers: {
           "apikey": sbKey,
@@ -547,10 +597,11 @@ async function handleCompleteJob(jobId, request, env) {
 }
 
 async function handleDeleteJob(jobId, env) {
+  const sbUrl = getSupabaseUrl(env);
   const sbKey = getSupabaseKey(env);
-  if (env.SUPABASE_URL && sbKey) {
+  if (sbUrl && sbKey) {
     try {
-      await fetch(`${env.SUPABASE_URL}/rest/v1/leads?id=eq.${jobId}`, {
+      await fetch(`${sbUrl}/rest/v1/leads?id=eq.${jobId}`, {
         method: "DELETE",
         headers: {
           "apikey": sbKey,
@@ -565,10 +616,11 @@ async function handleDeleteJob(jobId, env) {
 }
 
 async function handleGetCustomers(env) {
+  const sbUrl = getSupabaseUrl(env);
   const sbKey = getSupabaseKey(env);
-  if (env.SUPABASE_URL && sbKey) {
+  if (sbUrl && sbKey) {
     try {
-      const res = await fetch(`${env.SUPABASE_URL}/rest/v1/customers?select=*&order=total_revenue.desc`, {
+      const res = await fetch(`${sbUrl}/rest/v1/customers?select=*&order=total_revenue.desc`, {
         headers: {
           "apikey": sbKey,
           "Authorization": `Bearer ${sbKey}`
@@ -583,10 +635,11 @@ async function handleGetCustomers(env) {
 }
 
 async function handleGetCustomerJobs(custId, env) {
+  const sbUrl = getSupabaseUrl(env);
   const sbKey = getSupabaseKey(env);
-  if (env.SUPABASE_URL && sbKey) {
+  if (sbUrl && sbKey) {
     try {
-      const res = await fetch(`${env.SUPABASE_URL}/rest/v1/leads?customer_id=eq.${custId}&select=*&order=id.desc`, {
+      const res = await fetch(`${sbUrl}/rest/v1/leads?customer_id=eq.${custId}&select=*&order=id.desc`, {
         headers: {
           "apikey": sbKey,
           "Authorization": `Bearer ${sbKey}`
@@ -602,10 +655,11 @@ async function handleGetCustomerJobs(custId, env) {
 
 async function handleUpdateCustomer(custId, request, env) {
   const updates = await request.json();
+  const sbUrl = getSupabaseUrl(env);
   const sbKey = getSupabaseKey(env);
-  if (env.SUPABASE_URL && sbKey) {
+  if (sbUrl && sbKey) {
     try {
-      await fetch(`${env.SUPABASE_URL}/rest/v1/customers?id=eq.${custId}`, {
+      await fetch(`${sbUrl}/rest/v1/customers?id=eq.${custId}`, {
         method: "PATCH",
         headers: {
           "apikey": sbKey,
@@ -633,10 +687,11 @@ async function handleSendReview(request, env) {
 }
 
 async function handleGetB2B(env) {
+  const sbUrl = getSupabaseUrl(env);
   const sbKey = getSupabaseKey(env);
-  if (env.SUPABASE_URL && sbKey) {
+  if (sbUrl && sbKey) {
     try {
-      const res = await fetch(`${env.SUPABASE_URL}/rest/v1/b2b_prospects?select=*&order=id.desc`, {
+      const res = await fetch(`${sbUrl}/rest/v1/b2b_prospects?select=*&order=id.desc`, {
         headers: {
           "apikey": sbKey,
           "Authorization": `Bearer ${sbKey}`
@@ -654,10 +709,11 @@ async function handleGetB2B(env) {
 
 async function handleCreateB2B(request, env) {
   const body = await request.json();
+  const sbUrl = getSupabaseUrl(env);
   const sbKey = getSupabaseKey(env);
-  if (env.SUPABASE_URL && sbKey) {
+  if (sbUrl && sbKey) {
     try {
-      await fetch(`${env.SUPABASE_URL}/rest/v1/b2b_prospects`, {
+      await fetch(`${sbUrl}/rest/v1/b2b_prospects`, {
         method: "POST",
         headers: {
           "apikey": sbKey,
@@ -685,6 +741,10 @@ async function handleB2BPitch(request, env) {
 }
 
 // ─── 5. HELPERS ────────────────────────────────────────
+
+function getSupabaseUrl(env) {
+  return env.SUPABASE_URL || "https://eljzextouflrawmihzww.supabase.co";
+}
 
 function getSupabaseKey(env) {
   return env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SERVICE_ROLE_KE || "";
