@@ -1090,8 +1090,58 @@ async function fetchB2B() {
     }
 }
 
+function generateB2BPitchClient(prospect) {
+    if (!prospect) return { subject: 'Local Commercial Partnership', body: '' };
+    const company = prospect.company_name || "your team";
+    const contact = (prospect.contact_name || "there").split(" ")[0];
+    const category = (prospect.category || "Property Management").toLowerCase();
+    const city = prospect.city || "Citrus Heights";
+
+    let subject = "";
+    let body = "";
+
+    if (category.includes("property") || category.includes("rental") || category.includes("hoa")) {
+        subject = `Same-day unit turnover cleanouts for ${company} (${city})`;
+        body = `Hi ${contact},\n\nI’m Brandon, owner of Go Fetch, Gizmo! — a top-rated, local hauling and property cleanout service based right here in ${city}.\n\nWhen tenants vacate and leave couches, mattresses, or bulk trash behind, we handle same-day unit turnovers and garage cleanouts at flat rates roughly 30–40% below franchise haulers, complete with before/after photos for your security deposit deductions.\n\nDo you have any units currently in turnover or evictions needing a fast haul-away this week?\n\nBest,\nBrandon (& Gizmo 🐾)\nGo Fetch, Gizmo! | (916) 546-8537\ngofetchgizmo.com`;
+    } else if (category.includes("real estate") || category.includes("realtor") || category.includes("broker")) {
+        subject = `Pre-listing cleanouts & estate junk removal in ${city} (Go Fetch, Gizmo!)`;
+        body = `Hi ${contact},\n\nI’m Brandon, a local resident and owner of Go Fetch, Gizmo! hauling in ${city}.\n\nWe work with local listing agents to clear out cluttered garages, estate cleanouts, and bulky furniture before photography and open houses — often with same-day dispatch and guaranteed flat pricing.\n\nIf you have any upcoming listings that need quick de-cluttering before hitting the MLS, could I send you our 1-page vendor rate card?\n\nBest,\nBrandon (& Gizmo 🐾)\nGo Fetch, Gizmo! | (916) 546-8537\ngofetchgizmo.com`;
+    } else if (category.includes("storage")) {
+        subject = `Abandoned locker cleanouts & fast sweep-outs for ${company}`;
+        body = `Hi ${contact},\n\nI run Go Fetch, Gizmo! hauling based here in ${city}.\n\nWhen auction buyers leave remnant trash behind or you have abandoned delinquent units that need fast clearing, we clear and sweep them out same-day so you can get them relisted and earning rent immediately.\n\nWould it help to keep us on standby as your reliable local cleanout vendor?\n\nBest,\nBrandon (& Gizmo 🐾)\nGo Fetch, Gizmo! | (916) 546-8537\ngofetchgizmo.com`;
+    } else if (category.includes("attorney") || category.includes("eviction") || category.includes("legal")) {
+        subject = `Sheriff eviction cleanout & lock-out hauling support in ${city}`;
+        body = `Hi ${contact},\n\nI’m Brandon, owner of Go Fetch, Gizmo! hauling in ${city}.\n\nWe partner with local real estate and eviction attorneys to handle post-writ lock-out cleanouts, staging curbside removal, and documentation inventory with speed and discretion.\n\nCould we assist on any eviction turnarounds or estate proceedings you're currently handling?\n\nBest,\nBrandon (& Gizmo 🐾)\nGo Fetch, Gizmo! | (916) 546-8537\ngofetchgizmo.com`;
+    } else if (category.includes("contractor") || category.includes("remodel") || category.includes("roofing")) {
+        subject = `Jobsite debris & remodel trash haul-away in ${city}`;
+        body = `Hi ${contact},\n\nI’m Brandon, owner of Go Fetch, Gizmo! hauling in ${city}.\n\nWe provide local general contractors and remodelers with fast jobsite debris haul-off, scrap removal, and broom-clean finishes so your crew stays focused on building.\n\nDo you have any active remodels or demo jobs in ${city} needing a quick dump run?\n\nBest,\nBrandon (& Gizmo 🐾)\nGo Fetch, Gizmo! | (916) 546-8537\ngofetchgizmo.com`;
+    } else {
+        subject = `Reliable local hauling & commercial cleanout support in ${city}`;
+        body = `Hi ${contact},\n\nI’m Brandon, owner of Go Fetch, Gizmo! — a top-rated local hauling service in ${city}.\n\nWe provide local businesses with fast, flat-rate junk removal, bulk disposal, and cleanouts with same-day turnaround and priority commercial scheduling.\n\nIf your team ever needs bulky items or cleanout work handled quickly, feel free to text a photo to (916) 546-8537 for an instant quote.\n\nBest,\nBrandon (& Gizmo 🐾)\nGo Fetch, Gizmo! | (916) 546-8537\ngofetchgizmo.com`;
+    }
+
+    return { subject, body };
+}
+
 async function openB2BPitchModal(prospectId) {
     const prospect = (cachedB2B || []).find(p => String(p.id) === String(prospectId));
+    if (!prospect) {
+        showToast('Prospect record not found', 'error');
+        return;
+    }
+
+    // 1. Generate client-side pitch tailored to this exact prospect immediately
+    const clientPitch = generateB2BPitchClient(prospect);
+
+    document.getElementById('bpProspectId').value = prospectId;
+    document.getElementById('bpTitle').innerText = `Pitch: ${prospect.company_name}`;
+    document.getElementById('bpSubtitle').innerText = `Contact: ${prospect.contact_name || 'Manager'} · ${prospect.email}`;
+    document.getElementById('bpSubject').value = clientPitch.subject;
+    document.getElementById('bpBody').value = clientPitch.body;
+
+    openModal('modalB2BPitch');
+
+    // 2. Sync with backend
     try {
         const res = await fetch('/api/b2b/pitch', {
             method: 'POST',
@@ -1101,22 +1151,14 @@ async function openB2BPitchModal(prospectId) {
                 prospect: prospect
             })
         });
-        const data = await res.json();
-        
-        const compName = (data.prospect && data.prospect.company_name) || (prospect && prospect.company_name) || 'Partner';
-        const contName = (data.prospect && data.prospect.contact_name) || (prospect && prospect.contact_name) || 'Manager';
-        const email = (data.prospect && data.prospect.email) || (prospect && prospect.email) || '';
-
-        document.getElementById('bpProspectId').value = prospectId;
-        document.getElementById('bpTitle').innerText = `Pitch: ${compName}`;
-        document.getElementById('bpSubtitle').innerText = `Contact: ${contName} · ${email}`;
-        document.getElementById('bpSubject').value = data.pitch.subject;
-        document.getElementById('bpBody').value = data.pitch.body;
-
-        openModal('modalB2BPitch');
-    } catch (e) {
-        showAlert({ title: 'AI Generation Failed', message: 'Could not generate customized pitch preview.', icon: '⚠️', type: 'error' });
-    }
+        if (res.ok) {
+            const data = await res.json();
+            if (data.pitch && data.pitch.subject) {
+                document.getElementById('bpSubject').value = data.pitch.subject;
+                document.getElementById('bpBody').value = data.pitch.body;
+            }
+        }
+    } catch (e) {}
 }
 
 async function handleSendSingleB2BPitch(e) {
