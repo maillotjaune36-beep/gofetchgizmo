@@ -5,6 +5,7 @@ compatibility_date = "2024-09-01"
 [assets]
 directory = "./app"
 binding = "ASSETS"
+not_found_handling = "single-page-application"
 
 [vars]
 ENVIRONMENT = "production"
