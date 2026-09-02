@@ -94,6 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const formData = new FormData();
         uploadedFiles.forEach((file) => {
             formData.append('images', file);
+            formData.append('photos', file);
         });
 
         try {
@@ -102,7 +103,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: formData
             });
 
-            if (!response.ok) throw new Error('Estimation failed');
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                console.error('Estimate API error details:', errData);
+                throw new Error(errData.error || `Estimation failed (${response.status})`);
+            }
             const data = await response.json();
             currentQuoteData = data;
             displayQuote(data);

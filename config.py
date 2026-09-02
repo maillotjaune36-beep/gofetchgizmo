@@ -13,7 +13,7 @@ load_dotenv(BASE_DIR / ".env")
 ANTIGRAVITY_VERTEX = os.getenv("ANTIGRAVITY_VERTEX", "true").lower() in ("true", "1", "yes")
 GOOGLE_CLOUD_PROJECT = os.getenv("GOOGLE_CLOUD_PROJECT", "")
 GOOGLE_CLOUD_LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "us-west1")
-ANTIGRAVITY_MODEL = os.getenv("ANTIGRAVITY_MODEL", "gemini-2.5-flash")
+ANTIGRAVITY_MODEL = os.getenv("ANTIGRAVITY_MODEL", "gemini-2.0-flash")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 # Database & Supabase Configuration

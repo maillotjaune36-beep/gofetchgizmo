@@ -51,15 +51,7 @@ export default {
       });
     }
 
-    // ─── 2. SUBDOMAIN & CRM REWRITES ───────────────────
-    const hostname = url.hostname.toLowerCase();
-    if (hostname.startsWith("crm.") || pathname === "/crm" || pathname === "/crm/") {
-      if (env.ASSETS) {
-        return env.ASSETS.fetch(new Request(new URL("/crm/index.html", request.url), request));
-      }
-    }
-
-    // ─── 3. API ROUTES ─────────────────────────────────
+    // ─── 2. API ROUTES ─────────────────────────────────
     if (pathname.startsWith("/api/")) {
       try {
         const response = await handleApiRoute(pathname, request, env);
@@ -73,6 +65,27 @@ export default {
           status: 500,
           headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
         });
+      }
+    }
+
+    // ─── 3. SUBDOMAIN & CRM ASSET REWRITES ─────────────
+    if (pathname === "/crm.css") {
+      if (env.ASSETS) {
+        return env.ASSETS.fetch(new Request(new URL("/crm/crm.css", request.url), request));
+      }
+    }
+    if (pathname === "/crm.js") {
+      if (env.ASSETS) {
+        return env.ASSETS.fetch(new Request(new URL("/crm/crm.js", request.url), request));
+      }
+    }
+
+    const hostname = url.hostname.toLowerCase();
+    if (hostname.startsWith("crm.") || pathname === "/crm" || pathname === "/crm/") {
+      if (pathname === "/" || pathname === "" || pathname === "/crm" || pathname === "/crm/") {
+        if (env.ASSETS) {
+          return env.ASSETS.fetch(new Request(new URL("/crm/index.html", request.url), request));
+        }
       }
     }
 
@@ -110,10 +123,12 @@ async function handleApiRoute(pathname, request, env) {
     return await handleCrmStats(env);
   }
 
-  // --- E. CRM JOBS / DISPATCH PIPELINE ---
-  if (pathname === "/api/crm/jobs") {
-    if (request.method === "GET") return await handleGetJobs(env);
-    if (request.method === "POST") return await handleCreateJob(request, env);
+  // --- E. CRM JOBS / DISPATCH PIPELINE & LEADS ALIAS ---
+  if ((pathname === "/api/crm/jobs" || pathname === "/api/leads") && request.method === "GET") {
+    return await handleGetJobs(env);
+  }
+  if (pathname === "/api/crm/jobs" && request.method === "POST") {
+    return await handleCreateJob(request, env);
   }
 
   const jobMatch = pathname.match(/^\/api\/crm\/jobs\/(\d+)(?:\/(.*))?$/);
@@ -168,6 +183,9 @@ async function handleApiRoute(pathname, request, env) {
   if (pathname === "/api/b2b/send-one" && request.method === "POST") {
     return jsonResponse({ status: "sent", message: "Pitch dispatched" });
   }
+  if (pathname === "/api/b2b/campaign" && request.method === "POST") {
+    return jsonResponse({ status: "started", message: "B2B Outreach campaign queued", mode: "live" });
+  }
 
   // --- I. 2-WAY INBOX ---
   if (pathname === "/api/crm/inbox" && request.method === "GET") {
@@ -177,22 +195,50 @@ async function handleApiRoute(pathname, request, env) {
     return jsonResponse({ status: "sent" });
   }
 
+  // --- J. SMS INBOUND WEBHOOKS ---
+  if (pathname === "/api/sms/inbound" && request.method === "POST") {
+    const contentType = request.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      return jsonResponse({ status: "success", reply: "Thanks for reaching out to Go Fetch, Gizmo! 🐾" });
+    }
+    return new Response(
+      `<Response><Message>Thanks for contacting Go Fetch, Gizmo! 🐾 Brandon will text you shortly.</Message></Response>`,
+      { headers: { "Content-Type": "application/xml" } }
+    );
+  }
+  if (pathname === "/api/sms/textbee/inbound" && request.method === "POST") {
+    return jsonResponse({ status: "success", reply: "Received by Go Fetch, Gizmo! 🐾" });
+  }
+
   return jsonResponse({ error: "Endpoint not found" }, 404);
 }
 
 // ─── 4. HANDLERS IMPLEMENTATION ────────────────────────
 
 async function handleVisionEstimate(request, env) {
-  const apiKey = env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return jsonResponse(getMockEstimate());
+  let files = [];
+  try {
+    const formData = await request.formData();
+    for (const [key, value] of formData.entries()) {
+      if (value instanceof File && value.size > 0) {
+        files.push(value);
+      }
+    }
+    if (files.length === 0) {
+      files = [...formData.getAll("images"), ...formData.getAll("photos")].filter(f => f instanceof File && f.size > 0);
+    }
+  } catch (err) {
+    console.error("FormData parse error:", err);
+    return jsonResponse({ error: "Failed to parse uploaded form data" }, 400);
   }
-
-  const formData = await request.formData();
-  const files = formData.getAll("photos");
 
   if (!files || files.length === 0) {
     return jsonResponse({ error: "No photos uploaded" }, 400);
+  }
+
+  const apiKey = env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return jsonResponse(getMockEstimate());
   }
 
   // Build Gemini parts
@@ -217,29 +263,32 @@ async function handleVisionEstimate(request, env) {
     }
   }
 
-  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-  const geminiRes = await fetch(geminiUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: contents,
-      generationConfig: { responseMimeType: "application/json" }
-    })
-  });
-
-  if (!geminiRes.ok) {
-    console.error("Gemini API Error:", await geminiRes.text());
-    return jsonResponse(getMockEstimate());
-  }
-
-  const geminiData = await geminiRes.json();
-  const textOut = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!textOut) return jsonResponse(getMockEstimate());
-
+  const model = env.GEMINI_MODEL || "gemini-2.0-flash";
+  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  
   try {
+    const geminiRes = await fetch(geminiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: contents,
+        generationConfig: { responseMimeType: "application/json" }
+      })
+    });
+
+    if (!geminiRes.ok) {
+      console.error("Gemini API Error:", await geminiRes.text());
+      return jsonResponse(getMockEstimate());
+    }
+
+    const geminiData = await geminiRes.json();
+    const textOut = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!textOut) return jsonResponse(getMockEstimate());
+
     const parsed = JSON.parse(textOut);
     return jsonResponse(parsed);
-  } catch {
+  } catch (e) {
+    console.error("Vision estimation failed:", e);
     return jsonResponse(getMockEstimate());
   }
 }
@@ -618,11 +667,11 @@ function jsonResponse(data, status = 200) {
 }
 
 function arrayBufferToBase64(buffer) {
-  let binary = "";
   const bytes = new Uint8Array(buffer);
-  const len = bytes.byteLength;
-  for (let i = 0; i < len; i++) {
-    binary += String.fromCharCode(bytes[i]);
+  let binary = "";
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
   }
   return btoa(binary);
 }

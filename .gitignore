@@ -22,6 +22,11 @@ ENV/
 .coverage
 htmlcov/
 
+# Uploads & Ephemeral
+uploads/
+.wrangler/
+node_modules/
+
 # Operating System
 .DS_Store
 Thumbs.db

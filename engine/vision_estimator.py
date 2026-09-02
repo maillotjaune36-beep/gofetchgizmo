@@ -192,7 +192,8 @@ def _estimate_via_gemini_rest(
             mime = header.split(";")[0].replace("data:", "")
             parts.append({"inline_data": {"mime_type": mime, "data": b64_str}})
 
-    endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+    model_name = ANTIGRAVITY_MODEL or "gemini-2.0-flash"
+    endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
     payload = {
         "contents": [{"role": "user", "parts": parts}],
         "generationConfig": {

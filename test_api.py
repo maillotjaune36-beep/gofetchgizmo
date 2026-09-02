@@ -19,6 +19,19 @@ def test_api():
     assert "Snap & <span>Quote</span>" in res_index.text
     print("   [OK] GET / (Landing Page with AI Widget) -> 200 OK")
 
+    # 1b. Test Photo Estimate API
+    import io
+    dummy_image = io.BytesIO(b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00`\x00`\x00\x00\xff\xdb\x00C\x00")
+    res_est = client.post(
+        "/api/estimate",
+        files=[("images", ("test_couch.jpg", dummy_image, "image/jpeg"))]
+    )
+    assert res_est.status_code == 200
+    est_data = res_est.json()
+    assert "price_min" in est_data
+    assert "tier_name" in est_data
+    print(f"   [OK] POST /api/estimate -> 200 OK ({est_data.get('tier_name')})")
+
     # 2. Test Booking API
     res_book = client.post("/api/book", json={
         "name": "David Martinez",
