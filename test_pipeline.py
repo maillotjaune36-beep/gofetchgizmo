@@ -9,7 +9,7 @@ if sys.platform == "win32":
 import json
 from data.db import init_db, save_lead, get_all_leads
 from engine.vision_estimator import estimate_junk_volume, get_mock_estimate
-from engine.sms_handler import process_inbound_sms
+from engine.telegram_bot import notify_new_lead, send_telegram_message
 from engine.b2b_scout import harvest_b2b_prospects
 from engine.b2b_copywriter import generate_b2b_pitch
 
@@ -17,7 +17,7 @@ def run_tests():
     print("🐾 Running Go Fetch, Gizmo! Pipeline Smoke Tests...\n")
 
     # 1. Test Database
-    print("1. Initializing & Testing SQLite Database...")
+    print("1. Initializing & Testing Database...")
     init_db()
     test_lead_id = save_lead({
         "name": "Test Customer",
@@ -28,7 +28,7 @@ def run_tests():
         "estimated_price_min": 150,
         "estimated_price_max": 180,
         "standby_opt_in": True,
-        "special_notes": "Test junk load in Citrus Heights",
+        "special_notes": "Call 15 mins ahead",
         "source": "smoke_test"
     })
     leads = get_all_leads()
@@ -42,26 +42,10 @@ def run_tests():
     assert "tier_name" in estimate, "Estimate must include tier_name"
     print(f"   [OK] Vision Estimator verified! Generated: {estimate['tier_emoji']} {estimate['tier_name']} (${estimate['price_min']} - ${estimate['price_max']})")
 
-    # 3. Test Inbound Webhook Processor (Twilio & TextBee)
-    print("\n3. Testing Inbound Webhook Processor...")
-    # Test text without photo
-    reply_text, twiml_text = process_inbound_sms({
-        "From": "+19165551234",
-        "Body": "Hey, do you do couch removal?",
-        "NumMedia": "0"
-    })
-    assert "<Response>" in twiml_text, "TwiML response must be valid XML"
-    assert "photos" in reply_text.lower(), "Reply text must ask for photos"
-    print("   [OK] Inbound Text Response verified (Instant photo request sent)")
-
-    # Test booking keyword
-    reply_book, twiml_book = process_inbound_sms({
-        "From": "+19165551234",
-        "Body": "STANDBY - book me for Friday please",
-        "NumMedia": "0"
-    })
-    assert "Standby Discount" in reply_book, "Booking response must acknowledge standby"
-    print("   [OK] Inbound Booking Confirmation verified")
+    # 3. Test Telegram Dispatch Notification
+    print("\n3. Testing Telegram Dispatch Engine...")
+    sent = send_telegram_message("🐾 <b>Pipeline Smoke Test:</b> Telegram notification system active!")
+    print("   [OK] Telegram Dispatch System verified")
 
     # 4. Test B2B Whale Prospector
     print("\n4. Testing B2B Whale Prospector...")

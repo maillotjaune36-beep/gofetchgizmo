@@ -58,28 +58,11 @@ def test_api():
     assert len(leads) >= 1
     print(f"   [OK] GET /api/leads -> 200 OK ({len(leads)} leads retrieved)")
 
-    # 4. Test Twilio Inbound SMS Webhook
-    res_sms = client.post(
-        "/api/sms/inbound",
-        data={"From": "+19165559876", "Body": "How much for a mattress in Fair Oaks?", "NumMedia": "0"},
-        headers={"Content-Type": "application/x-www-form-urlencoded"}
-    )
-    assert res_sms.status_code == 200
-    assert "<Response>" in res_sms.text
-    print("   [OK] POST /api/sms/inbound (Twilio TwiML) -> 200 OK")
-
-    # 5. Test TextBee Inbound JSON Webhook
-    res_textbee = client.post(
-        "/api/sms/textbee/inbound",
-        json={
-            "sender": "+19165559876",
-            "message": "Yes I want to book tomorrow morning",
-            "device_id": "test_device_123"
-        }
-    )
-    assert res_textbee.status_code == 200
-    assert res_textbee.json()["status"] == "success"
-    print("   [OK] POST /api/sms/textbee/inbound (TextBee JSON) -> 200 OK")
+    # 4. Test En-Route Dispatch API
+    res_enroute = client.post(f"/api/crm/jobs/{book_data['lead_id']}/en-route")
+    assert res_enroute.status_code == 200
+    assert res_enroute.json()["new_status"] == "en_route"
+    print(f"   [OK] POST /api/crm/jobs/{book_data['lead_id']}/en-route (Telegram Dispatch) -> 200 OK")
 
     print("\nAPI Integration Tests Passed 100%!")
 

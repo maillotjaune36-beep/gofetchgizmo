@@ -5,7 +5,6 @@ pydantic>=2.9.0
 python-dotenv>=1.0.1
 requests>=2.32.3
 beautifulsoup4>=4.12.3
-twilio>=9.3.0
 aiofiles>=24.1.0
 google-antigravity>=0.1.15
 psycopg2-binary>=2.9.9

@@ -1,6 +1,6 @@
 """
 Go Fetch, Gizmo! - Unified Customer Generation & In-House CRM Server
-FastAPI Webhooks, Instant Photo Estimator, Twilio SMS Receiver, and CRM Command Center.
+FastAPI Webhooks, Instant Photo Estimator, Telegram Dispatch, and CRM Command Center.
 """
 import sys
 if sys.platform == "win32":
@@ -39,8 +39,8 @@ from data.db import (
     log_review_request
 )
 from engine.vision_estimator import estimate_junk_volume, async_estimate_junk_volume
-from engine.sms_handler import process_inbound_sms, send_outbound_sms
-from engine.telegram_bot import notify_new_lead
+from engine.sms_handler import send_outbound_sms
+from engine.telegram_bot import notify_new_lead, send_telegram_message
 from engine.b2b_dispatcher import run_b2b_campaign, send_b2b_email
 from engine.b2b_copywriter import generate_b2b_pitch
 from engine.reviews import send_review_request
@@ -154,31 +154,6 @@ async def book_lead(booking: BookingRequest, background_tasks: BackgroundTasks):
 
     return {"status": "success", "lead_id": lead_id, "message": "Booking received!"}
 
-@app.post("/api/sms/inbound")
-async def handle_inbound_sms(request: Request, background_tasks: BackgroundTasks):
-    content_type = request.headers.get("content-type", "")
-    if "application/json" in content_type:
-        data_dict = await request.json()
-        reply_text, _ = process_inbound_sms(data_dict)
-        sender = data_dict.get("sender") or data_dict.get("from") or data_dict.get("phone")
-        if sender and reply_text:
-            background_tasks.add_task(send_outbound_sms, sender, reply_text)
-        return JSONResponse({"status": "success", "reply": reply_text})
-    else:
-        form_data = await request.form()
-        data_dict = dict(form_data)
-        _, twiml_response = process_inbound_sms(data_dict)
-        return Response(content=twiml_response, media_type="application/xml")
-
-@app.post("/api/sms/textbee/inbound")
-async def handle_textbee_inbound(request: Request, background_tasks: BackgroundTasks):
-    data_dict = await request.json()
-    reply_text, _ = process_inbound_sms(data_dict)
-    sender = data_dict.get("sender") or data_dict.get("phone") or data_dict.get("from")
-    if sender and reply_text:
-        background_tasks.add_task(send_outbound_sms, sender, reply_text)
-    return JSONResponse({"status": "success", "reply": reply_text})
-
 # ----------------- AUTH & CONFIG API ----------------- #
 
 @app.get("/api/auth/config")
@@ -277,17 +252,22 @@ async def crm_complete_job(job_id: int, payload: CompleteJobRequest, background_
     return {"status": "success", "job": job}
 
 @app.post("/api/crm/jobs/{job_id}/en-route")
-async def crm_en_route_job(job_id: int, background_tasks: BackgroundTasks):
+async def crm_en_route_job(job_id: int):
     update_job(job_id, {"status": "en_route"})
     conn_jobs = get_jobs_by_status("all")
     job = next((j for j in conn_jobs if j["id"] == job_id), None)
-    if job and job.get("phone"):
+    if job:
+        cust_name = job.get("name") or "Neighbor"
+        phone = job.get("phone") or "N/A"
         msg = (
-            f"Hey {job.get('name', 'there')}! Brandon & Gizmo are en route in the truck 🚚🐾 "
-            f"We should arrive in approximately 15 minutes!"
+            f"🚚 <b>EN ROUTE ALERT DISPATCHED!</b> 🐾\n\n"
+            f"👤 <b>Customer:</b> {cust_name}\n"
+            f"📞 <b>Phone:</b> <code>{phone}</code>\n"
+            f"⏱ <b>ETA:</b> ~15 minutes\n"
+            f"📍 <b>Status:</b> Truck is rolling!"
         )
-        background_tasks.add_task(send_outbound_sms, job["phone"], msg)
-    return {"status": "success"}
+        send_telegram_message(msg)
+    return {"status": "success", "new_status": "en_route"}
 
 @app.get("/api/crm/customers")
 async def list_customers():

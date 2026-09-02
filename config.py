@@ -22,19 +22,6 @@ SUPABASE_URL = os.getenv("SUPABASE_URL", "").strip()
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "").strip()
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
 
-# SMS Gateway Provider ('textbee' or 'twilio')
-SMS_GATEWAY = os.getenv("SMS_GATEWAY", "textbee").lower()
-
-# TextBee Android SMS Gateway Settings
-TEXTBEE_API_KEY = os.getenv("TEXTBEE_API_KEY", "")
-TEXTBEE_DEVICE_ID = os.getenv("TEXTBEE_DEVICE_ID", "")
-TEXTBEE_BASE_URL = os.getenv("TEXTBEE_BASE_URL", "https://api.textbee.dev/api/v1")
-
-# Twilio SMS / MMS Webhooks (Alternative Gateway)
-TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
-TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
-TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "+19165468537")
-
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 

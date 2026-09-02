@@ -230,21 +230,6 @@ async function handleApiRoute(pathname, request, env) {
     return await handleSendInboxSMS(request, env);
   }
 
-  // --- J. SMS INBOUND WEBHOOKS ---
-  if (pathname === "/api/sms/inbound" && request.method === "POST") {
-    const contentType = request.headers.get("content-type") || "";
-    if (contentType.includes("application/json")) {
-      return jsonResponse({ status: "success", reply: "Thanks for reaching out to Go Fetch, Gizmo! 🐾" });
-    }
-    return new Response(
-      `<Response><Message>Thanks for contacting Go Fetch, Gizmo! 🐾 Brandon will text you shortly.</Message></Response>`,
-      { headers: { "Content-Type": "application/xml" } }
-    );
-  }
-  if (pathname === "/api/sms/textbee/inbound" && request.method === "POST") {
-    return jsonResponse({ status: "success", reply: "Received by Go Fetch, Gizmo! 🐾" });
-  }
-
   return jsonResponse({ error: "Endpoint not found" }, 404);
 }
 
@@ -673,27 +658,31 @@ async function handleEnRouteJob(jobId, request, env) {
     }
   }
 
-  // 4. Send SMS via configured Gateway (TextBee or Twilio)
-  let smsSent = false;
-  if (customerPhone) {
-    smsSent = await sendOutboundSms(customerPhone, enRouteMsg, env);
-  }
-
-  // 5. Telegram dispatch notification for Brandon
+  // 4. Telegram dispatch notification for Brandon
   if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
     try {
+      const cleanPhoneDigits = customerPhone.replace(/\D/g, '');
       const teleMsg = `🚚 <b>EN ROUTE ALERT DISPATCHED!</b> 🐾\n\n` +
         `👤 <b>Customer:</b> ${customerName}\n` +
         `📞 <b>Phone:</b> <code>${customerPhone}</code>\n` +
         `⏱ <b>ETA:</b> ~15 minutes\n` +
-        `💬 <b>SMS Status:</b> ${smsSent ? "✅ Sent via SMS Gateway" : "📱 Logged to CRM Chat"}`;
+        `💬 <b>Message:</b> "${enRouteMsg}"\n` +
+        `📍 <b>Status:</b> Truck is rolling!`;
       await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           chat_id: env.TELEGRAM_CHAT_ID,
           text: teleMsg,
-          parse_mode: "HTML"
+          parse_mode: "HTML",
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: `📞 Call ${customerName}`, url: `tel:${cleanPhoneDigits}` },
+                { text: "📋 Open CRM", url: "https://gofetchgizmo.com/crm" }
+              ]
+            ]
+          }
         })
       });
     } catch (e) {
@@ -705,65 +694,9 @@ async function handleEnRouteJob(jobId, request, env) {
     status: "success",
     job_id: jobId,
     new_status: "en_route",
-    sms_sent: smsSent,
-    message: "En-route alert dispatched and status updated to en_route"
+    telegram_sent: Boolean(env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID),
+    message: "En-route alert dispatched to Telegram and status updated to en_route"
   });
-}
-
-async function sendOutboundSms(toPhone, messageBody, env) {
-  const digitsOnly = toPhone.replace(/\D/g, "");
-  const cleanPhone = toPhone.startsWith("+")
-    ? toPhone
-    : (digitsOnly.length === 10 ? `+1${digitsOnly}` : toPhone);
-
-  // Path A: TextBee Gateway (Using Android Phone SIM)
-  if (env.TEXTBEE_API_KEY && env.TEXTBEE_DEVICE_ID) {
-    try {
-      const baseUrl = env.TEXTBEE_BASE_URL || "https://api.textbee.dev/api/v1";
-      const res = await fetch(`${baseUrl}/gateway/devices/${env.TEXTBEE_DEVICE_ID}/send-sms`, {
-        method: "POST",
-        headers: {
-          "x-api-key": env.TEXTBEE_API_KEY,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          recipients: [cleanPhone],
-          message: messageBody
-        })
-      });
-      if (res.ok) return true;
-      console.error(`TextBee send error (${res.status}):`, await res.text());
-    } catch (e) {
-      console.error("TextBee exception:", e);
-    }
-  }
-
-  // Path B: Twilio Gateway
-  if (env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN) {
-    try {
-      const fromPhone = env.TWILIO_PHONE_NUMBER || "+19165468537";
-      const auth = btoa(`${env.TWILIO_ACCOUNT_SID}:${env.TWILIO_AUTH_TOKEN}`);
-      const params = new URLSearchParams();
-      params.append("To", cleanPhone);
-      params.append("From", fromPhone);
-      params.append("Body", messageBody);
-
-      const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${env.TWILIO_ACCOUNT_SID}/Messages.json`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Basic ${auth}`,
-          "Content-Type": "application/x-www-form-urlencoded"
-        },
-        body: params.toString()
-      });
-      if (res.ok) return true;
-      console.error(`Twilio send error (${res.status}):`, await res.text());
-    } catch (e) {
-      console.error("Twilio exception:", e);
-    }
-  }
-
-  return false;
 }
 
 async function handleGetInbox(env) {
@@ -826,7 +759,20 @@ async function handleSendInboxSMS(request, env) {
     } catch (e) {
       console.error("Error logging sent SMS to Supabase:", e);
     }
-    await sendOutboundSms(phone, text, env);
+
+    if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
+      try {
+        await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: env.TELEGRAM_CHAT_ID,
+            text: `💬 <b>MESSAGE SENT FROM CRM</b>\nTo: <code>${phone}</code>\n\n${text}`,
+            parse_mode: "HTML"
+          })
+        });
+      } catch (e) {}
+    }
   }
 
   return jsonResponse({ status: "sent", phone, text });
