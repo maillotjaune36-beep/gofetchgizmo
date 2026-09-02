@@ -538,6 +538,14 @@ async function sendEnRouteSMS(jobId, phone) {
     if (!confirmed) return;
 
     try {
+        // 1. Advance job status directly to 'en_route'
+        await fetch(`/api/crm/jobs/${jobId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'en_route' })
+        });
+
+        // 2. Dispatch the en-route SMS alert
         const res = await fetch(`/api/crm/jobs/${jobId}/en-route`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
