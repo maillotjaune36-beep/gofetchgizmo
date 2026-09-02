@@ -171,7 +171,7 @@ async function handleApiRoute(pathname, request, env) {
     const jobId = jobMatch[1];
     const subAction = jobMatch[2];
     if (subAction === "en-route" && request.method === "POST") {
-      return jsonResponse({ status: "success", message: "En-route alert dispatched" });
+      return await handleEnRouteJob(jobId, request, env);
     }
     if (subAction === "complete" && request.method === "POST") {
       return await handleCompleteJob(jobId, request, env);
@@ -224,10 +224,10 @@ async function handleApiRoute(pathname, request, env) {
 
   // --- I. 2-WAY INBOX ---
   if (pathname === "/api/crm/inbox" && request.method === "GET") {
-    return jsonResponse([]);
+    return await handleGetInbox(env);
   }
   if (pathname === "/api/crm/inbox/send" && request.method === "POST") {
-    return jsonResponse({ status: "sent" });
+    return await handleSendInboxSMS(request, env);
   }
 
   // --- J. SMS INBOUND WEBHOOKS ---
@@ -594,6 +594,242 @@ async function handleCompleteJob(jobId, request, env) {
     }
   }
   return jsonResponse({ status: "completed", final_price: finalPrice });
+}
+
+async function handleEnRouteJob(jobId, request, env) {
+  let reqBody = {};
+  try {
+    reqBody = await request.json();
+  } catch (e) {}
+
+  const sbUrl = getSupabaseUrl(env);
+  const sbKey = getSupabaseKey(env);
+
+  let customerPhone = reqBody.phone || "";
+  let customerName = "Neighbor";
+
+  // 1. Fetch current lead details from Supabase if phone or name is missing
+  if (sbUrl && sbKey) {
+    try {
+      const getRes = await fetch(`${sbUrl}/rest/v1/leads?id=eq.${jobId}&select=*`, {
+        headers: {
+          "apikey": sbKey,
+          "Authorization": `Bearer ${sbKey}`
+        }
+      });
+      if (getRes.ok) {
+        const rows = await getRes.json();
+        if (rows.length > 0) {
+          customerPhone = customerPhone || rows[0].phone || "";
+          customerName = rows[0].name || "Neighbor";
+        }
+      }
+    } catch (e) {
+      console.error("Error fetching lead for en-route:", e);
+    }
+
+    // 2. Advance job status to 'en_route' in Supabase
+    try {
+      const updateRes = await fetch(`${sbUrl}/rest/v1/leads?id=eq.${jobId}`, {
+        method: "PATCH",
+        headers: {
+          "apikey": sbKey,
+          "Authorization": `Bearer ${sbKey}`,
+          "Content-Type": "application/json",
+          "Prefer": "return=minimal"
+        },
+        body: JSON.stringify({ status: "en_route" })
+      });
+      if (!updateRes.ok) {
+        console.error(`Failed to update status to en_route (${updateRes.status}):`, await updateRes.text());
+      }
+    } catch (e) {
+      console.error("Error updating lead status to en_route:", e);
+    }
+  }
+
+  const enRouteMsg = `Hey ${customerName}! Brandon & Gizmo are en route in the truck 🚚🐾 We should arrive in approximately 15 minutes!`;
+
+  // 3. Log outbound SMS to public.sms_messages in Supabase for live inbox
+  if (sbUrl && sbKey && customerPhone) {
+    try {
+      await fetch(`${sbUrl}/rest/v1/sms_messages`, {
+        method: "POST",
+        headers: {
+          "apikey": sbKey,
+          "Authorization": `Bearer ${sbKey}`,
+          "Content-Type": "application/json",
+          "Prefer": "return=minimal"
+        },
+        body: JSON.stringify({
+          lead_id: parseInt(jobId, 10),
+          phone_number: customerPhone,
+          direction: "outbound",
+          body: enRouteMsg
+        })
+      });
+    } catch (e) {
+      console.error("Error logging outbound SMS to Supabase:", e);
+    }
+  }
+
+  // 4. Send SMS via configured Gateway (TextBee or Twilio)
+  let smsSent = false;
+  if (customerPhone) {
+    smsSent = await sendOutboundSms(customerPhone, enRouteMsg, env);
+  }
+
+  // 5. Telegram dispatch notification for Brandon
+  if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
+    try {
+      const teleMsg = `🚚 <b>EN ROUTE ALERT DISPATCHED!</b> 🐾\n\n` +
+        `👤 <b>Customer:</b> ${customerName}\n` +
+        `📞 <b>Phone:</b> <code>${customerPhone}</code>\n` +
+        `⏱ <b>ETA:</b> ~15 minutes\n` +
+        `💬 <b>SMS Status:</b> ${smsSent ? "✅ Sent via SMS Gateway" : "📱 Logged to CRM Chat"}`;
+      await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: env.TELEGRAM_CHAT_ID,
+          text: teleMsg,
+          parse_mode: "HTML"
+        })
+      });
+    } catch (e) {
+      console.error("Telegram en-route error:", e);
+    }
+  }
+
+  return jsonResponse({
+    status: "success",
+    job_id: jobId,
+    new_status: "en_route",
+    sms_sent: smsSent,
+    message: "En-route alert dispatched and status updated to en_route"
+  });
+}
+
+async function sendOutboundSms(toPhone, messageBody, env) {
+  const digitsOnly = toPhone.replace(/\D/g, "");
+  const cleanPhone = toPhone.startsWith("+")
+    ? toPhone
+    : (digitsOnly.length === 10 ? `+1${digitsOnly}` : toPhone);
+
+  // Path A: TextBee Gateway (Using Android Phone SIM)
+  if (env.TEXTBEE_API_KEY && env.TEXTBEE_DEVICE_ID) {
+    try {
+      const baseUrl = env.TEXTBEE_BASE_URL || "https://api.textbee.dev/api/v1";
+      const res = await fetch(`${baseUrl}/gateway/devices/${env.TEXTBEE_DEVICE_ID}/send-sms`, {
+        method: "POST",
+        headers: {
+          "x-api-key": env.TEXTBEE_API_KEY,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          recipients: [cleanPhone],
+          message: messageBody
+        })
+      });
+      if (res.ok) return true;
+      console.error(`TextBee send error (${res.status}):`, await res.text());
+    } catch (e) {
+      console.error("TextBee exception:", e);
+    }
+  }
+
+  // Path B: Twilio Gateway
+  if (env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN) {
+    try {
+      const fromPhone = env.TWILIO_PHONE_NUMBER || "+19165468537";
+      const auth = btoa(`${env.TWILIO_ACCOUNT_SID}:${env.TWILIO_AUTH_TOKEN}`);
+      const params = new URLSearchParams();
+      params.append("To", cleanPhone);
+      params.append("From", fromPhone);
+      params.append("Body", messageBody);
+
+      const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${env.TWILIO_ACCOUNT_SID}/Messages.json`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Basic ${auth}`,
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: params.toString()
+      });
+      if (res.ok) return true;
+      console.error(`Twilio send error (${res.status}):`, await res.text());
+    } catch (e) {
+      console.error("Twilio exception:", e);
+    }
+  }
+
+  return false;
+}
+
+async function handleGetInbox(env) {
+  const sbUrl = getSupabaseUrl(env);
+  const sbKey = getSupabaseKey(env);
+  if (sbUrl && sbKey) {
+    try {
+      const res = await fetch(`${sbUrl}/rest/v1/sms_messages?select=*&order=created_at.asc`, {
+        headers: {
+          "apikey": sbKey,
+          "Authorization": `Bearer ${sbKey}`
+        }
+      });
+      if (res.ok) {
+        const msgs = await res.json();
+        const threadMap = {};
+        for (const m of msgs) {
+          const phone = m.phone_number;
+          if (!threadMap[phone]) {
+            threadMap[phone] = {
+              phone_number: phone,
+              customer: { name: "Neighbor", phone: phone },
+              messages: []
+            };
+          }
+          threadMap[phone].messages.push(m);
+        }
+        return jsonResponse(Object.values(threadMap));
+      }
+    } catch (e) {
+      console.error("Supabase get inbox error:", e);
+    }
+  }
+  return jsonResponse([]);
+}
+
+async function handleSendInboxSMS(request, env) {
+  const body = await request.json();
+  const sbUrl = getSupabaseUrl(env);
+  const sbKey = getSupabaseKey(env);
+  const phone = body.phone;
+  const text = body.body;
+
+  if (sbUrl && sbKey && phone && text) {
+    try {
+      await fetch(`${sbUrl}/rest/v1/sms_messages`, {
+        method: "POST",
+        headers: {
+          "apikey": sbKey,
+          "Authorization": `Bearer ${sbKey}`,
+          "Content-Type": "application/json",
+          "Prefer": "return=minimal"
+        },
+        body: JSON.stringify({
+          phone_number: phone,
+          direction: "outbound",
+          body: text
+        })
+      });
+    } catch (e) {
+      console.error("Error logging sent SMS to Supabase:", e);
+    }
+    await sendOutboundSms(phone, text, env);
+  }
+
+  return jsonResponse({ status: "sent", phone, text });
 }
 
 async function handleDeleteJob(jobId, env) {

@@ -538,9 +538,17 @@ async function sendEnRouteSMS(jobId, phone) {
     if (!confirmed) return;
 
     try {
-        await fetch(`/api/crm/jobs/${jobId}/en-route`, { method: 'POST' });
-        showToast(`🚚 En-route notification dispatched to ${phone}!`, 'success');
-        loadDashboard();
+        const res = await fetch(`/api/crm/jobs/${jobId}/en-route`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone })
+        });
+        if (res.ok) {
+            showToast(`🚚 En-route notification dispatched to ${phone}!`, 'success');
+        } else {
+            showToast("En-route status updated", "info");
+        }
+        await loadDashboard();
     } catch (e) {
         showToast("Error sending en-route SMS", "error");
     }
