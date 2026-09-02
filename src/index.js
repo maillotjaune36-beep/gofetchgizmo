@@ -216,7 +216,7 @@ async function handleApiRoute(pathname, request, env) {
     return await handleB2BPitch(request, env);
   }
   if (pathname === "/api/b2b/send-one" && request.method === "POST") {
-    return jsonResponse({ status: "sent", message: "Pitch dispatched" });
+    return await handleSendSingleB2B(request, env);
   }
   if (pathname === "/api/b2b/campaign" && request.method === "POST") {
     return jsonResponse({ status: "started", message: "B2B Outreach campaign queued", mode: "live" });
@@ -913,14 +913,213 @@ async function handleCreateB2B(request, env) {
   return jsonResponse({ id: Date.now(), ...body, status: "scouted" });
 }
 
+function generateB2BPitch(prospect) {
+  const company = prospect.company_name || "your team";
+  const contact = (prospect.contact_name || "there").split(" ")[0];
+  const category = (prospect.category || "Property Management").toLowerCase();
+  const city = prospect.city || "Citrus Heights";
+
+  let subject = "";
+  let body = "";
+
+  if (category.includes("property") || category.includes("rental") || category.includes("hoa")) {
+    subject = `Same-day unit turnover cleanouts for ${company} (${city})`;
+    body = `Hi ${contact},
+
+I’m Brandon, owner of Go Fetch, Gizmo! — a top-rated, local hauling and property cleanout service based right here in ${city}.
+
+When tenants vacate and leave couches, mattresses, or bulk trash behind, we handle same-day unit turnovers and garage cleanouts at flat rates roughly 30–40% below franchise haulers, complete with before/after photos for your security deposit deductions.
+
+Do you have any units currently in turnover or evictions needing a fast haul-away this week?
+
+Best,
+Brandon (& Gizmo 🐾)
+Go Fetch, Gizmo! | (916) 546-8537
+gofetchgizmo.com`;
+  } else if (category.includes("real estate") || category.includes("realtor") || category.includes("broker")) {
+    subject = `Pre-listing cleanouts & estate junk removal in ${city} (Go Fetch, Gizmo!)`;
+    body = `Hi ${contact},
+
+I’m Brandon, a local resident and owner of Go Fetch, Gizmo! hauling in ${city}.
+
+We work with local listing agents to clear out cluttered garages, estate cleanouts, and bulky furniture before photography and open houses — often with same-day dispatch and guaranteed flat pricing.
+
+If you have any upcoming listings that need quick de-cluttering before hitting the MLS, could I send you our 1-page vendor rate card?
+
+Best,
+Brandon (& Gizmo 🐾)
+Go Fetch, Gizmo! | (916) 546-8537
+gofetchgizmo.com`;
+  } else if (category.includes("storage")) {
+    subject = `Abandoned locker cleanouts & fast sweep-outs for ${company}`;
+    body = `Hi ${contact},
+
+I run Go Fetch, Gizmo! hauling based here in ${city}.
+
+When auction buyers leave remnant trash behind or you have abandoned delinquent units that need fast clearing, we clear and sweep them out same-day so you can get them relisted and earning rent immediately.
+
+Would it help to keep us on standby as your reliable local cleanout vendor?
+
+Best,
+Brandon (& Gizmo 🐾)
+Go Fetch, Gizmo! | (916) 546-8537
+gofetchgizmo.com`;
+  } else if (category.includes("attorney") || category.includes("eviction") || category.includes("legal")) {
+    subject = `Sheriff eviction cleanout & lock-out hauling support in ${city}`;
+    body = `Hi ${contact},
+
+I’m Brandon, owner of Go Fetch, Gizmo! hauling in ${city}.
+
+We partner with local real estate and eviction attorneys to handle post-writ lock-out cleanouts, staging curbside removal, and documentation inventory with speed and discretion.
+
+Could we assist on any eviction turnarounds or estate proceedings you're currently handling?
+
+Best,
+Brandon (& Gizmo 🐾)
+Go Fetch, Gizmo! | (916) 546-8537
+gofetchgizmo.com`;
+  } else if (category.includes("contractor") || category.includes("remodel") || category.includes("roofing")) {
+    subject = `Jobsite debris & remodel trash haul-away in ${city}`;
+    body = `Hi ${contact},
+
+I’m Brandon, owner of Go Fetch, Gizmo! hauling in ${city}.
+
+We provide local general contractors and remodelers with fast jobsite debris haul-off, scrap removal, and broom-clean finishes so your crew stays focused on building.
+
+Do you have any active remodels or demo jobs in ${city} needing a quick dump run?
+
+Best,
+Brandon (& Gizmo 🐾)
+Go Fetch, Gizmo! | (916) 546-8537
+gofetchgizmo.com`;
+  } else {
+    subject = `Reliable local hauling & commercial cleanout support in ${city}`;
+    body = `Hi ${contact},
+
+I’m Brandon, owner of Go Fetch, Gizmo! — a top-rated local hauling service in ${city}.
+
+We provide local businesses with fast, flat-rate junk removal, bulk disposal, and cleanouts with same-day turnaround and priority commercial scheduling.
+
+If your team ever needs bulky items or cleanout work handled quickly, feel free to text a photo to (916) 546-8537 for an instant quote.
+
+Best,
+Brandon (& Gizmo 🐾)
+Go Fetch, Gizmo! | (916) 546-8537
+gofetchgizmo.com`;
+  }
+
+  return { subject, body };
+}
+
 async function handleB2BPitch(request, env) {
-  const body = await request.json();
-  return jsonResponse({
-    prospect: { company_name: "Sacramento Property Management Pros", contact_name: "Elena Rostova", email: "elena@sacpremierprop.com" },
-    pitch: {
-      subject: "Reliable local hauling & cleanout support in Citrus Heights",
-      body: `Hi Elena,\n\nI’m Brandon, owner of Go Fetch, Gizmo! — Citrus Heights' highest-rated local junk hauling service.\n\nWe provide Sacramento property managers with same-day unit turnovers, garage cleanouts, and tenant trash-out support with priority dispatch.\n\nCould we assist on any upcoming turns this month?\n\nBest,\nBrandon & Gizmo 🐾\n(916) 546-8537\ngofetchgizmo.com`
+  let body = {};
+  try {
+    body = await request.json();
+  } catch (e) {}
+
+  const prospectId = body.prospect_id;
+  const sbUrl = getSupabaseUrl(env);
+  const sbKey = getSupabaseKey(env);
+
+  let prospect = body.prospect || null;
+
+  // 1. If full prospect object not supplied, fetch from Supabase
+  if (!prospect && prospectId && sbUrl && sbKey) {
+    try {
+      const res = await fetch(`${sbUrl}/rest/v1/b2b_prospects?id=eq.${prospectId}&select=*`, {
+        headers: {
+          "apikey": sbKey,
+          "Authorization": `Bearer ${sbKey}`
+        }
+      });
+      if (res.ok) {
+        const rows = await res.json();
+        if (rows.length > 0) prospect = rows[0];
+      }
+    } catch (e) {
+      console.error("Error fetching prospect for pitch:", e);
     }
+  }
+
+  // Fallback defaults if not found
+  if (!prospect) {
+    prospect = {
+      id: prospectId || 1,
+      company_name: body.company_name || "Commercial Partner",
+      contact_name: body.contact_name || "Property Manager",
+      email: body.email || "info@example.com",
+      category: body.category || "Property Management",
+      city: body.city || "Citrus Heights"
+    };
+  }
+
+  const pitch = generateB2BPitch(prospect);
+
+  return jsonResponse({
+    prospect,
+    pitch
+  });
+}
+
+async function handleSendSingleB2B(request, env) {
+  let body = {};
+  try {
+    body = await request.json();
+  } catch (e) {}
+
+  const prospectId = body.prospect_id;
+  const subject = body.subject || "Local Commercial Partnership";
+  const email = body.email || "";
+
+  const sbUrl = getSupabaseUrl(env);
+  const sbKey = getSupabaseKey(env);
+
+  // 1. Update prospect status in Supabase to 'pitched'
+  if (prospectId && sbUrl && sbKey) {
+    try {
+      await fetch(`${sbUrl}/rest/v1/b2b_prospects?id=eq.${prospectId}`, {
+        method: "PATCH",
+        headers: {
+          "apikey": sbKey,
+          "Authorization": `Bearer ${sbKey}`,
+          "Content-Type": "application/json",
+          "Prefer": "return=minimal"
+        },
+        body: JSON.stringify({
+          status: "pitched",
+          last_contacted_at: new Date().toISOString()
+        })
+      });
+    } catch (e) {
+      console.error("Error updating B2B prospect in Supabase:", e);
+    }
+  }
+
+  // 2. Send Telegram alert to Brandon
+  const tg = getTelegramConfig(env);
+  if (tg.isConfigured) {
+    try {
+      const teleMsg = `🚀 <b>B2B PARTNERSHIP PITCH QUEUED!</b>\n\n` +
+        `✉️ <b>To:</b> <code>${email}</code>\n` +
+        `📋 <b>Subject:</b> ${subject}\n` +
+        `📍 <b>Status:</b> Pitched`;
+      await fetch(`https://api.telegram.org/bot${tg.token}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: tg.chatId,
+          text: teleMsg,
+          parse_mode: "HTML"
+        })
+      });
+    } catch (e) {}
+  }
+
+  return jsonResponse({
+    status: "sent",
+    prospect_id: prospectId,
+    email: email,
+    message: `Pitch dispatched for ${email}`
   });
 }
 

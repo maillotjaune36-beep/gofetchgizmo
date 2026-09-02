@@ -1091,17 +1091,25 @@ async function fetchB2B() {
 }
 
 async function openB2BPitchModal(prospectId) {
+    const prospect = (cachedB2B || []).find(p => String(p.id) === String(prospectId));
     try {
         const res = await fetch('/api/b2b/pitch', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prospect_id: prospectId })
+            body: JSON.stringify({
+                prospect_id: prospectId,
+                prospect: prospect
+            })
         });
         const data = await res.json();
         
+        const compName = (data.prospect && data.prospect.company_name) || (prospect && prospect.company_name) || 'Partner';
+        const contName = (data.prospect && data.prospect.contact_name) || (prospect && prospect.contact_name) || 'Manager';
+        const email = (data.prospect && data.prospect.email) || (prospect && prospect.email) || '';
+
         document.getElementById('bpProspectId').value = prospectId;
-        document.getElementById('bpTitle').innerText = `Pitch: ${data.prospect.company_name}`;
-        document.getElementById('bpSubtitle').innerText = `Contact: ${data.prospect.contact_name || 'Property Manager'} · ${data.prospect.email}`;
+        document.getElementById('bpTitle').innerText = `Pitch: ${compName}`;
+        document.getElementById('bpSubtitle').innerText = `Contact: ${contName} · ${email}`;
         document.getElementById('bpSubject').value = data.pitch.subject;
         document.getElementById('bpBody').value = data.pitch.body;
 
@@ -1116,6 +1124,8 @@ async function handleSendSingleB2BPitch(e) {
     const prospectId = parseInt(document.getElementById('bpProspectId').value, 10);
     const subject = document.getElementById('bpSubject').value.trim();
     const body = document.getElementById('bpBody').value.trim();
+    const prospect = (cachedB2B || []).find(p => String(p.id) === String(prospectId));
+    const targetEmail = prospect ? prospect.email : '';
 
     try {
         const res = await fetch('/api/b2b/send-one', {
@@ -1124,15 +1134,22 @@ async function handleSendSingleB2BPitch(e) {
             body: JSON.stringify({
                 prospect_id: prospectId,
                 subject: subject,
-                body: body
+                body: body,
+                email: targetEmail
             })
         });
         const result = await res.json();
         closeModal('modalB2BPitch');
+
+        // Open native email client pre-filled so Brandon can send with 1 click
+        if (targetEmail) {
+            const mailtoUrl = `mailto:${targetEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            window.location.href = mailtoUrl;
+        }
         
         await showAlert({
             title: 'Pitch Dispatched! 🚀',
-            message: `Personalized commercial partnership pitch was emailed to ${result.email}!`,
+            message: `Personalized commercial partnership pitch was queued and opened in your email client for ${result.email || targetEmail}!`,
             icon: '✉️',
             type: 'success'
         });
