@@ -20,11 +20,12 @@ def test_api():
     print("   [OK] GET / (Landing Page with AI Widget) -> 200 OK")
 
     # 1b. Test Photo Estimate API
-    import io
-    dummy_image = io.BytesIO(b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00`\x00`\x00\x00\xff\xdb\x00C\x00")
+    import io, base64
+    valid_gif_bytes = base64.b64decode("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7")
+    dummy_image = io.BytesIO(valid_gif_bytes)
     res_est = client.post(
         "/api/estimate",
-        files=[("images", ("test_couch.jpg", dummy_image, "image/jpeg"))]
+        files=[("images", ("test_couch.gif", dummy_image, "image/gif"))]
     )
     assert res_est.status_code == 200
     est_data = res_est.json()

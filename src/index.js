@@ -238,6 +238,7 @@ async function handleVisionEstimate(request, env) {
 
   const apiKey = env.GEMINI_API_KEY;
   if (!apiKey) {
+    console.warn("GEMINI_API_KEY not configured in Worker environment. Falling back to mock estimate.");
     return jsonResponse(getMockEstimate());
   }
 
@@ -263,7 +264,7 @@ async function handleVisionEstimate(request, env) {
     }
   }
 
-  const model = env.GEMINI_MODEL || "gemini-2.0-flash";
+  const model = env.GEMINI_MODEL || "gemini-2.5-flash";
   const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   
   try {
@@ -272,20 +273,36 @@ async function handleVisionEstimate(request, env) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: contents,
-        generationConfig: { responseMimeType: "application/json" }
+        generationConfig: {
+          responseMimeType: "application/json"
+        }
       })
     });
 
     if (!geminiRes.ok) {
-      console.error("Gemini API Error:", await geminiRes.text());
+      const errText = await geminiRes.text();
+      console.error(`Gemini API Error (${geminiRes.status}):`, errText);
       return jsonResponse(getMockEstimate());
     }
 
     const geminiData = await geminiRes.json();
-    const textOut = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!textOut) return jsonResponse(getMockEstimate());
+    const parts = geminiData.candidates?.[0]?.content?.parts || [];
+    let textOut = "";
+    for (const part of parts) {
+      if (part.text && !part.thought) {
+        textOut += part.text;
+      }
+    }
+    if (!textOut && parts[0]?.text) {
+      textOut = parts[0].text;
+    }
+    if (!textOut) {
+      console.warn("No text in Gemini parts, fallback to mock");
+      return jsonResponse(getMockEstimate());
+    }
 
-    const parsed = JSON.parse(textOut);
+    const cleanText = textOut.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+    const parsed = JSON.parse(cleanText);
     return jsonResponse(parsed);
   } catch (e) {
     console.error("Vision estimation failed:", e);
