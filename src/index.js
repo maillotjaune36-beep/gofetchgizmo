@@ -678,8 +678,7 @@ async function handleEnRouteJob(jobId, request, env) {
           reply_markup: {
             inline_keyboard: [
               [
-                { text: `📞 Call ${customerName}`, url: `tel:${cleanPhoneDigits}` },
-                { text: "📋 Open CRM", url: "https://gofetchgizmo.com/crm" }
+                { text: "📋 Open CRM Dispatch", url: "https://gofetchgizmo.com/crm" }
               ]
             ]
           }

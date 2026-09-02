@@ -463,12 +463,12 @@ function createJobCard(job) {
         `;
     } else if (job.status === 'quoted') {
         actionButtons = `
-            <button class="btn-card primary" onclick="event.stopPropagation(); sendEnRouteSMS(${job.id}, '${job.phone}')">En Route 🚚</button>
+            <button class="btn-card primary" onclick="event.stopPropagation(); sendEnRouteSMS(${job.id}, '${job.phone}', '${(job.name || 'Neighbor').replace(/'/g, "\\'")}')">En Route 🚚</button>
             <button class="btn-card green" onclick="event.stopPropagation(); updateJobStatus(${job.id}, 'scheduled')">Schedule 📅</button>
         `;
     } else if (job.status === 'scheduled') {
         actionButtons = `
-            <button class="btn-card primary" onclick="event.stopPropagation(); sendEnRouteSMS(${job.id}, '${job.phone}')">En Route 🚚</button>
+            <button class="btn-card primary" onclick="event.stopPropagation(); sendEnRouteSMS(${job.id}, '${job.phone}', '${(job.name || 'Neighbor').replace(/'/g, "\\'")}')">En Route 🚚</button>
             <button class="btn-card green" onclick="event.stopPropagation(); openCompleteModal(${job.id}, ${job.estimated_price_min || 150})">Complete ✅</button>
         `;
     } else if (job.status === 'en_route') {
@@ -488,7 +488,7 @@ function createJobCard(job) {
         </div>
         <div class="job-phone">
             📞 <a href="tel:${cleanPhone}" onclick="event.stopPropagation()" style="color:var(--text-muted);text-decoration:none">${job.phone}</a>
-            <span style="margin-left:auto;cursor:pointer;color:var(--orange-light)" onclick="event.stopPropagation(); startChatWithCustomer('${job.phone}')">💬 Text</span>
+            <span style="margin-left:auto;cursor:pointer;color:var(--orange-light)" onclick="event.stopPropagation(); openNativeSMS('${job.phone}', 'Hey ${(job.name || 'Neighbor').split(' ')[0]}! Brandon here from Go Fetch, Gizmo! 🐾 ')">💬 Text</span>
         </div>
         <div class="job-loc">📍 ${job.address || job.zip_code || 'Citrus Heights / Sacramento'}</div>
         ${photosHtml}
@@ -511,7 +511,22 @@ function createJobCard(job) {
     return el;
 }
 
-// ─── 7. STATUS ACTION HANDLERS ─────────────────────────
+// ─── 7. STATUS ACTION HANDLERS & NATIVE SMS ───────────
+function openNativeSMS(phone, message) {
+    if (!phone) return;
+    const cleanPhone = phone.replace(/\D/g, '');
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const separator = isIOS ? '&' : '?';
+    const smsUrl = `sms:${cleanPhone}${separator}body=${encodeURIComponent(message || '')}`;
+
+    const a = document.createElement('a');
+    a.href = smsUrl;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => a.remove(), 400);
+}
+
 async function updateJobStatus(jobId, newStatus) {
     try {
         await fetch(`/api/crm/jobs/${jobId}`, {
@@ -526,39 +541,42 @@ async function updateJobStatus(jobId, newStatus) {
     }
 }
 
-async function sendEnRouteSMS(jobId, phone) {
+async function sendEnRouteSMS(jobId, phone, name) {
+    const custName = (name || 'Neighbor').split(' ')[0];
+    const textMsg = `Hey ${custName}! Brandon & Gizmo are en route in the truck 🚚🐾 We should arrive in approximately 15 minutes!`;
+
     const confirmed = await showConfirm({
         title: 'Dispatch En Route Alert?',
-        message: `Send an automated "On our way (15 mins out)" SMS text to ${phone}?`,
+        message: `Advance job to "En Route" and open your Messages app with the 15-min text pre-filled for ${phone}?`,
         icon: '🚚',
-        confirmText: 'Send SMS 🚚',
+        confirmText: 'Send Text 🚚',
         cancelText: 'Cancel'
     });
     
     if (!confirmed) return;
 
     try {
-        // 1. Advance job status directly to 'en_route'
+        // 1. Advance job status directly to 'en_route' in Supabase
         await fetch(`/api/crm/jobs/${jobId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: 'en_route' })
         });
 
-        // 2. Dispatch the en-route SMS alert
-        const res = await fetch(`/api/crm/jobs/${jobId}/en-route`, {
+        // 2. Dispatch Telegram alert to Brandon
+        await fetch(`/api/crm/jobs/${jobId}/en-route`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone })
+            body: JSON.stringify({ phone, name: custName })
         });
-        if (res.ok) {
-            showToast(`🚚 En-route notification dispatched to ${phone}!`, 'success');
-        } else {
-            showToast("En-route status updated", "info");
-        }
+
+        // 3. Trigger 1-Tap Native SMS
+        openNativeSMS(phone, textMsg);
+
+        showToast(`🚚 Opened Messages app for ${phone}!`, 'success');
         await loadDashboard();
     } catch (e) {
-        showToast("Error sending en-route SMS", "error");
+        showToast("Error dispatching en-route", "error");
     }
 }
 
@@ -699,14 +717,23 @@ async function handleConfirmComplete(e) {
             body: JSON.stringify({ final_price: finalPrice })
         });
         closeModal('modalComplete');
-        
-        await showAlert({
+
+        const job = allJobs.find(j => String(j.id) === String(jobId));
+        const custName = job && job.name ? job.name.split(' ')[0] : 'Neighbor';
+        const custPhone = job ? job.phone : '';
+
+        const sendReview = await showConfirm({
             title: 'Job Completed! 🎉',
-            message: `Logged revenue ($${finalPrice}) and automatically dispatched the 5-Star Google Review SMS with the Gizmo treat hook!`,
+            message: `Revenue logged ($${finalPrice})! Open your Messages app with the 5-Star Google Review text pre-filled for ${custName} (${custPhone})?`,
             icon: '🐕',
-            btnText: 'Great! 🥓',
-            type: 'success'
+            confirmText: 'Send Review Text ⭐',
+            cancelText: 'Done'
         });
+
+        if (sendReview && custPhone) {
+            const reviewMsg = `Hey ${custName}! Brandon here from Go Fetch, Gizmo! 🐾 Hope you're loving all that cleared-out space! If you have 15 seconds, could you drop Gizmo a quick 5-star Google review? ⭐⭐⭐⭐⭐ https://g.page/r/gofetchgizmo/review (Gizmo gets an extra bacon treat for every 5-star review! 🐶🥓) Thanks again!`;
+            openNativeSMS(custPhone, reviewMsg);
+        }
 
         loadDashboard();
     } catch (e) {
@@ -816,8 +843,9 @@ async function handleSendSMS(e) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ phone: activeThreadPhone, body: text })
         });
+        openNativeSMS(activeThreadPhone, text);
         input.value = '';
-        showToast('SMS dispatched! 💬', 'success');
+        showToast('Opening Messages app... 💬', 'success');
         fetchInbox();
     } catch (e) {
         showToast('Failed to send SMS message.', 'error');
