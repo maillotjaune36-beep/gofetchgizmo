@@ -2,12 +2,13 @@
 Go Fetch, Gizmo! - Automated 5-Star Google Review Harvester & Reputation Engine
 Dispatches review links post-job completion with the Gizmo treat hook.
 """
+import os
 from typing import Dict, Any, Optional
 from engine.sms_handler import send_outbound_sms
 from data.db import log_review_request, get_all_reviews
 
 # Direct Google Review link (place ID or shortlink for Go Fetch, Gizmo!)
-GOOGLE_REVIEW_URL = "https://g.page/r/gofetchgizmo/review"
+GOOGLE_REVIEW_URL = os.getenv("GOOGLE_REVIEW_URL", "https://g.page/r/gofetchgizmo/review")
 
 def send_review_request(job_data: Dict[str, Any]) -> bool:
     """

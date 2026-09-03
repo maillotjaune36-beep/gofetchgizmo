@@ -212,9 +212,19 @@
                             <strong>Gizmo Treat Counter:</strong> <span id="revTreatsCount">0 treats earned</span> 🥓🐶<br>
                             <em>(Every 5-star review earns Gizmo an extra bacon treat!)</em>
                         </div>
+
+                        <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:1rem;margin-bottom:1.25rem">
+                            <label style="font-size:0.82rem;font-weight:700;color:var(--gold);display:block;margin-bottom:6px">🔗 Google Business Review URL:</label>
+                            <div style="display:flex;gap:0.5rem;margin-bottom:6px">
+                                <input type="url" id="cfgGoogleReviewUrl" class="search-input" style="flex:1;font-size:0.82rem" placeholder="https://g.page/r/.../review or Google review link">
+                                <button type="button" class="btn-card primary" id="btnSaveReviewUrl" style="padding:6px 12px;font-size:0.8rem;white-space:nowrap">Save 💾</button>
+                            </div>
+                            <div id="reviewUrlFeedback" style="font-size:0.75rem;color:var(--green);display:none">Link saved! All review prompts and text messages now use this link.</div>
+                        </div>
+
                         <div style="display:flex;gap:0.75rem">
                             <button class="btn-card primary" id="btnManualReview" style="font-size:0.85rem">✉️ Send Review SMS Manually</button>
-                            <a href="https://g.page/r/gofetchgizmo/review" target="_blank" class="btn-card" style="font-size:0.85rem;display:flex;align-items:center;justify-content:center;gap:4px">⭐ Open Review Link ↗</a>
+                            <a href="https://g.page/r/gofetchgizmo/review" target="_blank" id="btnLiveReviewLink" class="btn-card" style="font-size:0.85rem;display:flex;align-items:center;justify-content:center;gap:4px">⭐ Open Review Link ↗</a>
                         </div>
                     </div>
                 </div>
@@ -633,6 +643,6 @@
 
     <!-- SUPABASE JS SDK & CRM SCRIPT -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="/crm.js?v=2.7"></script>
+    <script src="/crm.js?v=2.8"></script>
 </body>
 </html>

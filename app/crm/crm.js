@@ -303,6 +303,23 @@ function initEventListeners() {
     if (formCustomerNotes) formCustomerNotes.addEventListener('submit', handleSaveCustomerNotes);
 
     // Reviews
+    const btnSaveReviewUrl = document.getElementById('btnSaveReviewUrl');
+    if (btnSaveReviewUrl) {
+        btnSaveReviewUrl.addEventListener('click', () => {
+            const input = document.getElementById('cfgGoogleReviewUrl');
+            const val = input ? input.value.trim() : '';
+            if (val) {
+                setGoogleReviewUrl(val);
+                const fb = document.getElementById('reviewUrlFeedback');
+                if (fb) {
+                    fb.style.display = 'block';
+                    setTimeout(() => { fb.style.display = 'none'; }, 4000);
+                }
+                showToast('Google Business review URL saved! ⭐', 'success');
+            }
+        });
+    }
+
     const btnManualReview = document.getElementById('btnManualReview');
     if (btnManualReview) btnManualReview.addEventListener('click', () => openModal('modalSendReview'));
 
@@ -731,8 +748,18 @@ async function handleConfirmComplete(e) {
         });
 
         if (sendReview && custPhone) {
-            const reviewMsg = `Hey ${custName}! Brandon here from Go Fetch, Gizmo! 🐾 Hope you're loving all that cleared-out space! If you have 15 seconds, could you drop Gizmo a quick 5-star Google review? ⭐⭐⭐⭐⭐ https://g.page/r/gofetchgizmo/review (Gizmo gets an extra bacon treat for every 5-star review! 🐶🥓) Thanks again!`;
+            const reviewUrl = getGoogleReviewUrl();
+            const reviewMsg = `Hey ${custName}! Brandon here from Go Fetch, Gizmo! 🐾 Hope you're loving all that cleared-out space! If you have 15 seconds, could you drop Gizmo a quick 5-star Google review? ⭐⭐⭐⭐⭐ ${reviewUrl} (Gizmo gets an extra bacon treat for every 5-star review! 🐶🥓) Thanks again!`;
             openNativeSMS(custPhone, reviewMsg);
+
+            // Log review request to database & Telegram
+            try {
+                fetch('/api/crm/reviews/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: custName, phone: custPhone, review_url: reviewUrl })
+                });
+            } catch (e) {}
         }
 
         loadDashboard();
@@ -1037,12 +1064,38 @@ async function handleSaveCustomerNotes(e) {
     }
 }
 
+// Google Review URL Helper
+const DEFAULT_GOOGLE_REVIEW_URL = 'https://g.page/r/gofetchgizmo/review';
+
+function getGoogleReviewUrl() {
+    return localStorage.getItem('gizmo_google_review_url') || window.GIZMO_GOOGLE_REVIEW_URL || DEFAULT_GOOGLE_REVIEW_URL;
+}
+
+function setGoogleReviewUrl(url) {
+    if (!url) return;
+    localStorage.setItem('gizmo_google_review_url', url.trim());
+    updateGoogleReviewUI();
+}
+
+function updateGoogleReviewUI() {
+    const currentUrl = getGoogleReviewUrl();
+    const input = document.getElementById('cfgGoogleReviewUrl');
+    if (input && !input.value) input.value = currentUrl;
+    const linkBtn = document.getElementById('btnLiveReviewLink');
+    if (linkBtn) linkBtn.href = currentUrl;
+}
+
 // ─── 12. 5-STAR GOOGLE REVIEW ENGINE ───────────────────
 async function fetchReviews() {
     try {
+        updateGoogleReviewUI();
         const res = await fetch('/api/crm/reviews');
         const reviews = await res.json();
         const tbody = document.getElementById('reviewsTableBody');
+        const treatSpan = document.getElementById('revTreatsCount');
+        if (treatSpan) {
+            treatSpan.innerText = `${reviews.length} treats earned`;
+        }
 
         if (!tbody) return;
 
@@ -1054,9 +1107,9 @@ async function fetchReviews() {
         tbody.innerHTML = reviews.map(r => `
             <tr>
                 <td><strong>${r.customer_name || 'Customer'}</strong></td>
-                <td>${r.phone_number}</td>
-                <td>${new Date(r.sent_at).toLocaleDateString()}</td>
-                <td><span style="color:var(--green);font-weight:700">Sent & Tracked</span></td>
+                <td><a href="tel:${r.phone_number}" style="color:var(--text-muted);text-decoration:none">${r.phone_number}</a></td>
+                <td>${r.sent_at ? new Date(r.sent_at).toLocaleDateString() : 'Recent'}</td>
+                <td><span style="color:var(--green);font-weight:700">Dispatched 💬</span></td>
                 <td>⭐⭐⭐⭐⭐</td>
             </tr>
         `).join('');
@@ -1069,23 +1122,22 @@ async function handleSendManualReview(e) {
     e.preventDefault();
     const name = document.getElementById('srName').value.trim();
     const phone = document.getElementById('srPhone').value.trim();
+    const reviewUrl = getGoogleReviewUrl();
 
     try {
         await fetch('/api/crm/reviews/send', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: name, phone: phone })
+            body: JSON.stringify({ name: name, phone: phone, review_url: reviewUrl })
         });
         closeModal('modalSendReview');
         document.getElementById('formSendReview').reset();
         
-        await showAlert({
-            title: 'Review SMS Sent ⭐',
-            message: `5-Star Google review link with the Gizmo bacon treat hook was dispatched to ${name} (${phone})!`,
-            icon: '⭐',
-            btnText: 'Awesome! 🐶',
-            type: 'success'
-        });
+        // 1-Tap native SMS dispatch with custom Google Review URL & bacon treat hook
+        const reviewMsg = `Hey ${name.split(' ')[0] || 'Neighbor'}! Brandon here from Go Fetch, Gizmo! 🐾 Hope you're loving all that cleared-out space! If you have 15 seconds, could you drop Gizmo a quick 5-star Google review? ⭐⭐⭐⭐⭐ ${reviewUrl} (Gizmo gets an extra bacon treat for every 5-star review! 🐶🥓) Thanks again!`;
+        openNativeSMS(phone, reviewMsg);
+
+        showToast(`Messages app opened with 5-Star review text for ${name}! ⭐`, 'success');
 
         fetchReviews();
         fetchStats();

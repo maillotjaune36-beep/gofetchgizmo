@@ -1018,13 +1018,70 @@ async function handleUpdateCustomer(custId, request, env) {
 }
 
 async function handleGetReviews(env) {
-  return jsonResponse([
-    { id: 1, customer_name: "Sarah Jenkins", phone_number: "(916) 555-0199", sent_at: new Date().toISOString(), status: "sent", rating: 5 }
-  ]);
+  const sbUrl = getSupabaseUrl(env);
+  const sbKey = getSupabaseKey(env);
+  if (sbUrl && sbKey) {
+    try {
+      const res = await fetch(`${sbUrl}/rest/v1/review_requests?select=*&order=id.desc`, {
+        headers: {
+          "apikey": sbKey,
+          "Authorization": `Bearer ${sbKey}`
+        }
+      });
+      if (res.ok) return jsonResponse(await res.json());
+    } catch (e) {
+      console.error("Supabase reviews error:", e);
+    }
+  }
+  return jsonResponse([]);
 }
 
 async function handleSendReview(request, env) {
-  const body = await request.json();
+  let body = {};
+  try {
+    body = await request.json();
+  } catch (e) {}
+
+  const sbUrl = getSupabaseUrl(env);
+  const sbKey = getSupabaseKey(env);
+  if (sbUrl && sbKey) {
+    try {
+      await fetch(`${sbUrl}/rest/v1/review_requests`, {
+        method: "POST",
+        headers: {
+          "apikey": sbKey,
+          "Authorization": `Bearer ${sbKey}`,
+          "Content-Type": "application/json",
+          "Prefer": "return=minimal"
+        },
+        body: JSON.stringify({
+          customer_name: body.name || "Neighbor",
+          phone_number: body.phone || "",
+          status: "sent",
+          rating: 5,
+          sent_at: new Date().toISOString()
+        })
+      });
+    } catch (e) {
+      console.error("Supabase insert review request error:", e);
+    }
+  }
+
+  const tg = getTelegramConfig(env);
+  if (tg.isConfigured) {
+    try {
+      await fetch(`https://api.telegram.org/bot${tg.token}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: tg.chatId,
+          text: `⭐ <b>GOOGLE REVIEW REQUEST SENT!</b> 🐾\n👤 <b>Customer:</b> ${body.name || "Neighbor"}\n📞 <b>Phone:</b> <code>${body.phone || ""}</code>\n🥓 <i>Gizmo gets an extra bacon treat for every 5-star review!</i>`,
+          parse_mode: "HTML"
+        })
+      });
+    } catch (e) {}
+  }
+
   return jsonResponse({ status: "sent", name: body.name, phone: body.phone });
 }
 
