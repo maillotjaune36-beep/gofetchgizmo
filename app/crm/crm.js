@@ -560,20 +560,44 @@ function createJobCard(job) {
     return el;
 }
 
-// ─── 7. STATUS ACTION HANDLERS & NATIVE SMS ───────────
 function openNativeSMS(phone, message) {
     if (!phone) return;
     const cleanPhone = phone.replace(/\D/g, '');
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     const separator = isIOS ? '&' : '?';
     const smsUrl = `sms:${cleanPhone}${separator}body=${encodeURIComponent(message || '')}`;
 
-    const a = document.createElement('a');
-    a.href = smsUrl;
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => a.remove(), 400);
+    // 1. Always copy text to clipboard as universal fallback
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(message || '').catch(() => {});
+    }
+
+    // 2. On Mobile, launch native SMS
+    if (isMobile) {
+        const a = document.createElement('a');
+        a.href = smsUrl;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => a.remove(), 400);
+        return;
+    }
+
+    // 3. On Desktop: Windows doesn't always have a default 'sms:' protocol handler
+    // Show Desktop SMS Hub prompt with 1-click options
+    showDesktopSMSPrompt(cleanPhone, message);
+}
+
+function showDesktopSMSPrompt(phone, message) {
+    const formattedPhone = phone.length === 10 ? `(${phone.slice(0,3)}) ${phone.slice(3,6)}-${phone.slice(6)}` : phone;
+
+    showAlert({
+        title: 'Outreach Beamed to Your Phone! 📲',
+        message: `Your pitch for ${formattedPhone} was beamed directly to your Telegram bot and copied to your clipboard!\n\nOptions to send from PC:\n• Windows Phone Link: Search "Phone Link" on Windows\n• Google Messages Web: messages.google.com/web\n• Or open Telegram on your phone to tap & send instantly!`,
+        icon: '📱',
+        type: 'info'
+    });
 }
 
 async function updateJobStatus(jobId, newStatus) {
@@ -1501,10 +1525,9 @@ async function directSendSignalSMS(sigId, phone, customPitch) {
         return;
     }
 
-    // 1. Launch 1-tap native SMS pre-filled
-    openNativeSMS(phone, pitch);
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-    // 2. Mark contacted & notify Telegram via backend
+    // 1. Mark contacted & notify Telegram via backend FIRST
     try {
         await fetch(`/api/crm/signals/${sigId}/dispatch`, {
             method: 'POST',
@@ -1515,7 +1538,15 @@ async function directSendSignalSMS(sigId, phone, customPitch) {
 
     if (signal) signal.status = 'contacted';
     renderSignalsTable(cachedSignals);
-    showToast(`1-Tap SMS opened for ${phone}! Signal marked as Contacted 🐾`, 'success');
+
+    // 2. Launch 1-tap native SMS (mobile) or desktop hub
+    openNativeSMS(phone, pitch);
+
+    if (isMobile) {
+        showToast(`1-Tap SMS opened for ${phone}! Signal marked as Contacted 🐾`, 'success');
+    } else {
+        showToast(`📲 Beamed to Telegram & copied to clipboard! Marked as Contacted 🐾`, 'success');
+    }
 }
 
 async function directSendSignalEmail(sigId, email, customPitch) {

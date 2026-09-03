@@ -1781,15 +1781,20 @@ async function handleDispatchSignal(sigId, request, env) {
   // Send Telegram notification to Brandon
   const tg = getTelegramConfig(env);
   if (tg.isConfigured) {
-    const tgMsg = `🎯 *Classified Outreach Dispatched!* 🐾\nMethod: ${method.toUpperCase()}\nTo: \`${contact || 'Direct'}\`\n\n*Pitch Sent:*\n_${pitch.slice(0, 300)}_`;
+    const teleMsg = `🎯 <b>CLASSIFIED OUTREACH DISPATCHED!</b> 🐾\n\n` +
+      `👤 <b>Lead Contact:</b> <code>${contact || 'Direct'}</code>\n` +
+      `📱 <b>Method:</b> ${method.toUpperCase()}\n\n` +
+      `💬 <b>Pitch:</b>\n<code>${pitch}</code>\n\n` +
+      `<i>Tap the number or message above on your phone to text immediately!</i>`;
+
     try {
-      await fetch(`https://api.telegram.org/bot${tg.botToken}/sendMessage`, {
+      await fetch(`https://api.telegram.org/bot${tg.token}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           chat_id: tg.chatId,
-          text: tgMsg,
-          parse_mode: "Markdown"
+          text: teleMsg,
+          parse_mode: "HTML"
         })
       });
     } catch (err) {}
