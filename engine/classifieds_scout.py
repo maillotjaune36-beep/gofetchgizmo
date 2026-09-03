@@ -49,9 +49,25 @@ SEARCH_CONFIGS = [
     {
         "category": "hauling_gig",
         "name": "Labor & Hauling Gigs",
-        "url": "https://www.craigslist.org/search/area/sacramento?cat=lbs&query=haul|junk|moving|trash|dump",
-        "fallback_rss": "https://sacramento.craigslist.org/search/lbs?format=rss&query=haul|junk|moving|trash|dump"
+        "url": "https://www.craigslist.org/search/area/sacramento?cat=lbg&query=truck|haul|moving|move|cleanout|yard|debris|trash|dump",
+        "fallback_rss": "https://sacramento.craigslist.org/search/lbg?format=rss&query=truck|haul|moving|move|cleanout|yard|debris|trash|dump"
     }
+]
+
+COMPETITOR_PATTERNS = [
+    r'now hiring', r'\bhiring\b', r'start asap', r'start today', r'helpers wanted', r'join the best crew',
+    r'we haul', r'you call', r'our movers', r'handyman services', r'all skill levels',
+    r'cash pay all', r'call \(8', r'our team', r'license', r'licensed', r'free estimate',
+    r'hauling services', r'commercial cleanout', r'make up to', r'per week', r'per month',
+    r'lawn care pros', r'contractors wanted', r'owners wanted', r'fill in your routes',
+    r'scooter', r'forklift', r'driver', r'mechanic', r'earn with your vehicle', r'instant approval',
+    r'build a full time', r'day labor workers', r'seeking california b', r'roadside tech',
+    r'dump runs', r'dump run', r'affordable delivery'
+]
+
+CUSTOMER_INTENT_PATTERNS = [
+    r'\bneed\b', r'\bneeded\b', r'\bhelp\b', r'\bhire\b', r'looking to', r'looking for', r'haul', r'move',
+    r'clean', r'dump', r'trash', r'debris', r'storage', r'trailer', r'box truck', r'yard'
 ]
 
 def get_scout_session() -> requests.Session:
@@ -92,6 +108,15 @@ def parse_html_search_results(html_text: str, category: str) -> List[Dict[str, A
             continue
             
         title = title_el.get_text(strip=True)
+        title_lower = title.lower()
+
+        # Reject competitor hauling companies and gig recruiters
+        if category == "hauling_gig":
+            if any(re.search(pat, title_lower) for pat in COMPETITOR_PATTERNS):
+                continue
+            if not any(re.search(pat, title_lower) for pat in CUSTOMER_INTENT_PATTERNS):
+                continue
+
         link = title_el.get("href", "")
         if link.startswith("/"):
             link = f"https://sacramento.craigslist.org{link}"

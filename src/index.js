@@ -1497,8 +1497,24 @@ const CL_CATEGORIES = [
   {
     category: 'hauling_gig',
     name: 'Labor & Hauling Gigs',
-    url: 'https://www.craigslist.org/search/area/sacramento?cat=lbs&query=haul|junk|moving|trash|dump'
+    url: 'https://www.craigslist.org/search/area/sacramento?cat=lbg&query=truck|haul|moving|move|cleanout|yard|debris|trash|dump'
   }
+];
+
+const COMPETITOR_PATTERNS = [
+  /now hiring/i, /\bhiring\b/i, /start asap/i, /start today/i, /helpers wanted/i, /join the best crew/i,
+  /we haul/i, /you call/i, /our movers/i, /handyman services/i, /all skill levels/i,
+  /cash pay all/i, /call \(8/i, /our team/i, /license/i, /licensed/i, /free estimate/i,
+  /hauling services/i, /commercial cleanout/i, /make up to/i, /per week/i, /per month/i,
+  /lawn care pros/i, /contractors wanted/i, /owners wanted/i, /fill in your routes/i,
+  /scooter/i, /forklift/i, /driver/i, /mechanic/i, /earn with your vehicle/i, /instant approval/i,
+  /build a full time/i, /day labor workers/i, /seeking california b/i, /roadside tech/i,
+  /dump runs/i, /dump run/i, /affordable delivery/i
+];
+
+const CUSTOMER_INTENT_PATTERNS = [
+  /\bneed\b/i, /\bneeded\b/i, /\bhelp\b/i, /\bhire\b/i, /looking to/i, /looking for/i, /\bhaul/i, /\bmove/i,
+  /\bclean/i, /\bdump\b/i, /\btrash\b/i, /\bdebris\b/i, /storage/i, /trailer/i, /box truck/i, /yard/i
 ];
 
 function decodeHtml(html) {
@@ -1554,7 +1570,7 @@ async function scrapeLiveCraigslist() {
       const itemRegex = /<li[^>]+class="[^"]*cl-static-search-result[^"]*"[^>]*>([\s\S]*?)<\/li>/gi;
       const matches = [...text.matchAll(itemRegex)];
 
-      for (let i = 0; i < Math.min(matches.length, 15); i++) {
+      for (let i = 0; i < Math.min(matches.length, 25); i++) {
         const block = matches[i][1];
         const titleMatch = block.match(/<div class="title">([^<]+)<\/div>/i) || block.match(/<a[^>]+>([^<]+)<\/a>/i);
         const linkMatch = block.match(/href="([^"]+)"/i);
@@ -1562,6 +1578,13 @@ async function scrapeLiveCraigslist() {
         const pidMatch = matches[i][0].match(/data-pid="([^"]+)"/i);
 
         const title = decodeHtml(titleMatch ? titleMatch[1] : 'Classified Item');
+
+        // Filter out competitor ads & recruiter spam for hauling gigs
+        if (cat.category === 'hauling_gig') {
+          if (COMPETITOR_PATTERNS.some(p => p.test(title))) continue;
+          if (!CUSTOMER_INTENT_PATTERNS.some(p => p.test(title))) continue;
+        }
+
         let link = linkMatch ? linkMatch[1] : '';
         if (link && link.startsWith("/")) link = `https://sacramento.craigslist.org${link}`;
         const loc = decodeHtml(locMatch ? locMatch[1] : 'Citrus Heights / Sacramento');
@@ -1613,8 +1636,17 @@ async function handleGetSignals(request, env) {
         headers: { "apikey": sbKey, "Authorization": `Bearer ${sbKey}` }
       });
       if (res.ok) {
-        const rows = await res.json();
-        if (rows && rows.length > 0) return jsonResponse(rows);
+        let rows = await res.json();
+        if (rows && rows.length > 0) {
+          // Filter out competitor ads from historical stored rows
+          rows = rows.filter(s => {
+            if (s.category === 'hauling_gig') {
+              if (COMPETITOR_PATTERNS.some(p => p.test(s.title || ''))) return false;
+            }
+            return true;
+          });
+          if (rows.length > 0) return jsonResponse(rows);
+        }
       }
     } catch (e) {
       console.error("Supabase get signals error:", e);
