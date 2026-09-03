@@ -1065,10 +1065,14 @@ async function handleSaveCustomerNotes(e) {
 }
 
 // Google Review URL Helper
-const DEFAULT_GOOGLE_REVIEW_URL = 'https://g.page/r/gofetchgizmo/review';
+const DEFAULT_GOOGLE_REVIEW_URL = 'https://share.google/COJZkVik8pvPZPqWj';
 
 function getGoogleReviewUrl() {
-    return localStorage.getItem('gizmo_google_review_url') || window.GIZMO_GOOGLE_REVIEW_URL || DEFAULT_GOOGLE_REVIEW_URL;
+    const saved = localStorage.getItem('gizmo_google_review_url');
+    if (saved && !saved.includes('gofetchgizmo/review')) {
+        return saved;
+    }
+    return DEFAULT_GOOGLE_REVIEW_URL;
 }
 
 function setGoogleReviewUrl(url) {
@@ -1080,7 +1084,7 @@ function setGoogleReviewUrl(url) {
 function updateGoogleReviewUI() {
     const currentUrl = getGoogleReviewUrl();
     const input = document.getElementById('cfgGoogleReviewUrl');
-    if (input && !input.value) input.value = currentUrl;
+    if (input) input.value = currentUrl;
     const linkBtn = document.getElementById('btnLiveReviewLink');
     if (linkBtn) linkBtn.href = currentUrl;
 }

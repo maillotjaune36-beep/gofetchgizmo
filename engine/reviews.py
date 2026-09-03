@@ -8,7 +8,7 @@ from engine.sms_handler import send_outbound_sms
 from data.db import log_review_request, get_all_reviews
 
 # Direct Google Review link (place ID or shortlink for Go Fetch, Gizmo!)
-GOOGLE_REVIEW_URL = os.getenv("GOOGLE_REVIEW_URL", "https://g.page/r/gofetchgizmo/review")
+GOOGLE_REVIEW_URL = os.getenv("GOOGLE_REVIEW_URL", "https://share.google/COJZkVik8pvPZPqWj")
 
 def send_review_request(job_data: Dict[str, Any]) -> bool:
     """
