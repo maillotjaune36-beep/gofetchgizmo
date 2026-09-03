@@ -36,8 +36,12 @@ from data.db import (
     save_b2b_prospect,
     update_b2b_prospect,
     get_crm_stats,
-    log_review_request
+    log_review_request,
+    get_classified_signals,
+    save_classified_signal,
+    update_classified_signal_status
 )
+from engine.classifieds_scout import scout_all_signals
 from engine.vision_estimator import estimate_junk_volume, async_estimate_junk_volume
 from engine.sms_handler import send_outbound_sms
 from engine.telegram_bot import notify_new_lead, send_telegram_message
@@ -389,6 +393,36 @@ class NewB2BProspect(BaseModel):
 async def add_b2b_prospect_endpoint(payload: NewB2BProspect):
     pid = save_b2b_prospect(payload.model_dump())
     return {"status": "created", "prospect_id": pid}
+
+# ----------------- CLASSIFIED SIGNALS (CRISIS & CURB ALERT SNIPER) ----------------- #
+
+@app.get("/api/crm/signals")
+async def list_classified_signals(
+    category: Optional[str] = "all",
+    status: Optional[str] = "all",
+    limit: Optional[int] = 60
+):
+    return get_classified_signals(category=category, status=status, limit=limit)
+
+class SignalScanRequest(BaseModel):
+    max_per_cat: Optional[int] = 10
+
+@app.post("/api/crm/signals/scan")
+async def scan_classified_signals(payload: SignalScanRequest = SignalScanRequest()):
+    new_signals = scout_all_signals(save_to_db=True, max_per_cat=payload.max_per_cat)
+    return {
+        "status": "success",
+        "new_count": len(new_signals),
+        "signals": new_signals
+    }
+
+class SignalStatusUpdate(BaseModel):
+    status: str
+
+@app.patch("/api/crm/signals/{signal_id}")
+async def update_signal_status_endpoint(signal_id: int, payload: SignalStatusUpdate):
+    success = update_classified_signal_status(signal_id, payload.status)
+    return {"status": "updated" if success else "failed", "id": signal_id, "new_status": payload.status}
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))

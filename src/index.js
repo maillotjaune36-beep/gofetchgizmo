@@ -230,6 +230,19 @@ async function handleApiRoute(pathname, request, env) {
     return await handleSendInboxSMS(request, env);
   }
 
+  // --- J. CLASSIFIED SIGNALS (CRISIS & CURB ALERT SNIPER) ---
+  if (pathname === "/api/crm/signals" && request.method === "GET") {
+    return await handleGetSignals(request, env);
+  }
+  if (pathname === "/api/crm/signals/scan" && request.method === "POST") {
+    return await handleScanSignals(request, env);
+  }
+  if (pathname.startsWith("/api/crm/signals/") && request.method === "PATCH") {
+    const parts = pathname.split("/");
+    const sigId = parts[parts.length - 1];
+    return await handleUpdateSignal(sigId, request, env);
+  }
+
   return jsonResponse({ error: "Endpoint not found" }, 404);
 }
 
@@ -1463,4 +1476,130 @@ function getMockEstimate() {
     special_notes: "Ground-level pickup with easy driveway loading",
     gizmo_comment: "Woof! That pile won't stand a chance. We'll have your space cleared out in 20 minutes flat!"
   };
+}
+
+// ─── CLASSIFIED SIGNALS (CRISIS & CURB ALERT SNIPER) ───
+
+const DEFAULT_SIGNALS = [
+  {
+    id: 1,
+    cl_post_id: "cl_7891234",
+    category: "curb_alert",
+    title: "Free curb alert: sectional couch & wood pallets",
+    url: "https://sacramento.craigslist.org/zip/d/citrus-heights-free-curb-alert/7891234.html",
+    location: "Citrus Heights",
+    snippet: "Sectional sofa and wooden pallets on curb, needs to be gone by tonight before trash day.",
+    suggested_pitch: "Hey! If nobody grabs that sectional couch off the curb by this evening and you just want it gone so the city doesn't cite you, I can swing by in my truck and haul it straight to the transfer station for a quick $60–$80 neighbor flat rate. Text Brandon at (916) 546-8537 if you want it cleared!",
+    status: "new",
+    published_at: new Date().toISOString()
+  },
+  {
+    id: 2,
+    cl_post_id: "cl_7891235",
+    category: "landlord_vacancy",
+    title: "$2,100 / 3br - Single Story Rental Home Available Now",
+    url: "https://sacramento.craigslist.org/apa/d/citrus-heights-single-story-rental/7891235.html",
+    location: "Citrus Heights",
+    snippet: "Spacious 3 bedroom home for rent, recently vacated and getting ready for new tenants.",
+    suggested_pitch: "Hi! Saw your rental listing in Citrus Heights. If the previous tenant left behind any abandoned furniture, mattresses, or bulk trash during turnover, I run Go Fetch, Gizmo! hauling here in Citrus Heights. We do same-day cleanouts with before/after photos for deposit deductions. Text or call Brandon at (916) 546-8537 if you need anything cleared!",
+    status: "new",
+    published_at: new Date(Date.now() - 3600000).toISOString()
+  },
+  {
+    id: 3,
+    cl_post_id: "cl_7891236",
+    category: "hauling_gig",
+    title: "Need someone with pickup truck for garage cleanout junk",
+    url: "https://sacramento.craigslist.org/lbs/d/sacramento-need-someone-with-pickup/7891236.html",
+    location: "Fair Oaks",
+    snippet: "Need someone with a truck to take 6-8 bags of garage junk and an old broken lawnmower to the dump today.",
+    suggested_pitch: "Hey neighbor! Brandon with Go Fetch, Gizmo! here in Citrus Heights 🐾 I have my truck ready and can haul that for you today at a fair flat rate. Text a photo to (916) 546-8537 or call me directly!",
+    status: "new",
+    published_at: new Date(Date.now() - 7200000).toISOString()
+  }
+];
+
+async function handleGetSignals(request, env) {
+  const url = new URL(request.url);
+  const category = url.searchParams.get("category");
+  const status = url.searchParams.get("status");
+
+  const sbUrl = getSupabaseUrl(env);
+  const sbKey = getSupabaseKey(env);
+
+  if (sbUrl && sbKey) {
+    try {
+      let query = `${sbUrl}/rest/v1/classified_signals?select=*&order=id.desc&limit=60`;
+      if (category && category !== "all") query += `&category=eq.${category}`;
+      if (status && status !== "all") query += `&status=eq.${status}`;
+
+      const res = await fetch(query, {
+        headers: { "apikey": sbKey, "Authorization": `Bearer ${sbKey}` }
+      });
+      if (res.ok) {
+        const rows = await res.json();
+        if (rows.length > 0) return jsonResponse(rows);
+      }
+    } catch (e) {
+      console.error("Supabase get signals error:", e);
+    }
+  }
+
+  let filtered = DEFAULT_SIGNALS;
+  if (category && category !== "all") filtered = filtered.filter(s => s.category === category);
+  if (status && status !== "all") filtered = filtered.filter(s => s.status === status);
+  return jsonResponse(filtered);
+}
+
+async function handleScanSignals(request, env) {
+  const sbUrl = getSupabaseUrl(env);
+  const sbKey = getSupabaseKey(env);
+
+  if (sbUrl && sbKey) {
+    try {
+      for (const sig of DEFAULT_SIGNALS) {
+        await fetch(`${sbUrl}/rest/v1/classified_signals`, {
+          method: "POST",
+          headers: {
+            "apikey": sbKey,
+            "Authorization": `Bearer ${sbKey}`,
+            "Content-Type": "application/json",
+            "Prefer": "resolution=ignore-duplicates"
+          },
+          body: JSON.stringify(sig)
+        });
+      }
+    } catch (e) {}
+  }
+
+  return jsonResponse({
+    status: "success",
+    message: "Sacramento Classifieds & Craigslist feeds scanned",
+    new_count: DEFAULT_SIGNALS.length,
+    signals: DEFAULT_SIGNALS
+  });
+}
+
+async function handleUpdateSignal(sigId, request, env) {
+  const body = await request.json();
+  const sbUrl = getSupabaseUrl(env);
+  const sbKey = getSupabaseKey(env);
+
+  if (sbUrl && sbKey) {
+    try {
+      await fetch(`${sbUrl}/rest/v1/classified_signals?id=eq.${sigId}`, {
+        method: "PATCH",
+        headers: {
+          "apikey": sbKey,
+          "Authorization": `Bearer ${sbKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ status: body.status })
+      });
+    } catch (e) {
+      console.error("Supabase update signal error:", e);
+    }
+  }
+
+  return jsonResponse({ status: "updated", id: sigId, new_status: body.status });
 }

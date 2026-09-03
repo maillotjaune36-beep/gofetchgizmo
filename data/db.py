@@ -182,6 +182,20 @@ def init_db():
             notes TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
+
+        CREATE TABLE IF NOT EXISTS classified_signals (
+            id SERIAL PRIMARY KEY,
+            cl_post_id TEXT UNIQUE NOT NULL,
+            category TEXT NOT NULL,
+            title TEXT NOT NULL,
+            url TEXT NOT NULL,
+            location TEXT,
+            snippet TEXT,
+            suggested_pitch TEXT,
+            status TEXT DEFAULT 'new',
+            published_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
         """)
         conn.commit()
     else:
@@ -271,6 +285,22 @@ def init_db():
             status TEXT DEFAULT 'scouted',
             last_contacted_at TIMESTAMP,
             notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """)
+
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS classified_signals (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cl_post_id TEXT UNIQUE NOT NULL,
+            category TEXT NOT NULL,
+            title TEXT NOT NULL,
+            url TEXT NOT NULL,
+            location TEXT,
+            snippet TEXT,
+            suggested_pitch TEXT,
+            status TEXT DEFAULT 'new',
+            published_at TIMESTAMP,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """)
@@ -533,6 +563,52 @@ def update_b2b_prospect(prospect_id: int, updates: Dict[str, Any]) -> bool:
 
 def get_all_b2b_prospects() -> List[Dict[str, Any]]:
     return execute_query("SELECT * FROM b2b_prospects ORDER BY id DESC", fetch_all=True) or []
+
+# ----------------- CLASSIFIED SIGNALS ----------------- #
+
+def signal_exists(cl_post_id: str) -> bool:
+    row = execute_query("SELECT id FROM classified_signals WHERE cl_post_id = ?", (cl_post_id,), fetch_one=True)
+    return bool(row)
+
+def save_classified_signal(signal: Dict[str, Any]) -> int:
+    pid = signal.get("cl_post_id")
+    if signal_exists(pid):
+        row = execute_query("SELECT id FROM classified_signals WHERE cl_post_id = ?", (pid,), fetch_one=True)
+        return row.get("id") if row else 0
+
+    return execute_query("""
+    INSERT INTO classified_signals (cl_post_id, category, title, url, location, snippet, suggested_pitch, status, published_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        signal.get("cl_post_id"),
+        signal.get("category"),
+        signal.get("title"),
+        signal.get("url"),
+        signal.get("location"),
+        signal.get("snippet"),
+        signal.get("suggested_pitch"),
+        signal.get("status", "new"),
+        signal.get("published_at", datetime.now().isoformat())
+    ), return_id=True)
+
+def get_classified_signals(category: Optional[str] = None, status: Optional[str] = None, limit: int = 60) -> List[Dict[str, Any]]:
+    conditions = []
+    params = []
+    if category and category != "all":
+        conditions.append("category = ?")
+        params.append(category)
+    if status and status != "all":
+        conditions.append("status = ?")
+        params.append(status)
+    
+    where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+    query = f"SELECT * FROM classified_signals {where_clause} ORDER BY id DESC LIMIT ?"
+    params.append(limit)
+    return execute_query(query, tuple(params), fetch_all=True) or []
+
+def update_classified_signal_status(signal_id: int, status: str) -> bool:
+    execute_query("UPDATE classified_signals SET status = ? WHERE id = ?", (status, signal_id), commit=True)
+    return True
 
 # ----------------- CRM STATS & ANALYTICS ----------------- #
 

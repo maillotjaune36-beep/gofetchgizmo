@@ -338,6 +338,37 @@ function initEventListeners() {
 
     const formSendB2BPitch = document.getElementById('formSendB2BPitch');
     if (formSendB2BPitch) formSendB2BPitch.addEventListener('submit', handleSendSingleB2BPitch);
+
+    // Signal Sniper (Craigslist / Classifieds)
+    const btnScanSignals = document.getElementById('btnScanSignals');
+    if (btnScanSignals) btnScanSignals.addEventListener('click', handleScanSignals);
+
+    const catFilterContainer = document.getElementById('signalCategoryFilters');
+    if (catFilterContainer) {
+        catFilterContainer.addEventListener('click', (e) => {
+            const btn = e.target.closest('button');
+            if (!btn) return;
+            catFilterContainer.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            activeSignalCategory = btn.getAttribute('data-cat') || 'all';
+            fetchSignals();
+        });
+    }
+
+    const statusFilter = document.getElementById('signalStatusFilter');
+    if (statusFilter) {
+        statusFilter.addEventListener('change', (e) => {
+            activeSignalStatus = e.target.value;
+            fetchSignals();
+        });
+    }
+
+    const signalSearch = document.getElementById('signalSearchInput');
+    if (signalSearch) {
+        signalSearch.addEventListener('input', () => {
+            renderSignalsTable(cachedSignals);
+        });
+    }
 }
 
 // ─── 4. MASTER DASHBOARD LOADER ────────────────────────
@@ -348,7 +379,8 @@ async function loadDashboard() {
         fetchInbox(),
         fetchCustomers(),
         fetchReviews(),
-        fetchB2B()
+        fetchB2B(),
+        fetchSignals()
     ]);
 }
 
@@ -1345,7 +1377,171 @@ async function launchB2BOutbound() {
     }
 }
 
-// ─── 14. MODALS & LIGHTBOX HELPERS ─────────────────────
+// ─── 14. REAL-TIME SIGNAL SNIPER (CRAIGSLIST & CLASSIFIEDS) ───
+let cachedSignals = [];
+let activeSignalCategory = 'all';
+let activeSignalStatus = 'all';
+let activeSignalId = null;
+
+async function fetchSignals() {
+    try {
+        let url = '/api/crm/signals';
+        const params = new URLSearchParams();
+        if (activeSignalCategory !== 'all') params.append('category', activeSignalCategory);
+        if (activeSignalStatus !== 'all') params.append('status', activeSignalStatus);
+        const q = params.toString();
+        if (q) url += `?${q}`;
+
+        const res = await fetch(url);
+        cachedSignals = await res.json();
+        renderSignalsTable(cachedSignals);
+    } catch (e) {
+        console.error("Signal fetch error:", e);
+    }
+}
+
+function renderSignalsTable(signals) {
+    const tbody = document.getElementById('signalsTableBody');
+    if (!tbody) return;
+
+    let filtered = signals || [];
+    const searchVal = (document.getElementById('signalSearchInput')?.value || '').toLowerCase().trim();
+    if (searchVal) {
+        filtered = filtered.filter(s => 
+            (s.title || '').toLowerCase().includes(searchVal) ||
+            (s.location || '').toLowerCase().includes(searchVal) ||
+            (s.snippet || '').toLowerCase().includes(searchVal) ||
+            (s.suggested_pitch || '').toLowerCase().includes(searchVal)
+        );
+    }
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center">No signals matching filters. Click "⚡ Scan Feeds Now" to refresh Sacramento Craigslist!</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(s => {
+        let catBadge = '';
+        if (s.category === 'curb_alert') {
+            catBadge = '<span class="badge-type" style="background:rgba(245,158,11,0.15);color:var(--gold);border:1px solid var(--gold)">🛋️ Curb Alert</span>';
+        } else if (s.category === 'landlord_vacancy') {
+            catBadge = '<span class="badge-type b2b">🏢 Landlord</span>';
+        } else {
+            catBadge = '<span class="badge-type residential">🚚 Hauling Gig</span>';
+        }
+
+        let statusBadge = '';
+        if (s.status === 'converted') {
+            statusBadge = '<span style="color:var(--green);font-weight:700">⭐ Booked</span>';
+        } else if (s.status === 'contacted') {
+            statusBadge = '<span style="color:var(--orange-light);font-weight:700">💬 Contacted</span>';
+        } else if (s.status === 'dismissed') {
+            statusBadge = '<span style="color:var(--text-muted)">❌ Dismissed</span>';
+        } else {
+            statusBadge = '<span style="color:var(--green);font-weight:600">🟢 New</span>';
+        }
+
+        const safePitch = (s.suggested_pitch || '').replace(/"/g, '&quot;');
+
+        return `
+            <tr>
+                <td>${catBadge}</td>
+                <td>
+                    <strong>${s.title}</strong>
+                    <div style="font-size:0.75rem;margin-top:3px">
+                        <a href="${s.url}" target="_blank" style="color:var(--orange-light);text-decoration:none">View Post on Craigslist ↗</a>
+                    </div>
+                </td>
+                <td><span style="font-size:0.85rem;color:var(--text-muted)">📍 ${s.location || 'Citrus Heights'}</span></td>
+                <td>
+                    <div style="font-size:0.82rem;color:#e2e8f0;background:rgba(255,255,255,0.03);padding:6px 10px;border-radius:6px;border:1px solid var(--border);max-height:75px;overflow:hidden;text-overflow:ellipsis;cursor:pointer" title="Click to copy pitch" onclick="copySignalPitchText('${safePitch}')">
+                        ${s.suggested_pitch || 'No pitch generated'}
+                    </div>
+                </td>
+                <td>${statusBadge}</td>
+                <td>
+                    <div style="display:flex;gap:4px;flex-wrap:wrap">
+                        <button class="btn-card" style="padding:4px 8px;font-size:0.75rem" onclick="copySignalPitchText('${safePitch}')">📋 Copy</button>
+                        <button class="btn-card primary" style="padding:4px 8px;font-size:0.75rem" onclick="openSignalModal(${s.id})">🎯 Pitch</button>
+                        <button class="btn-card" style="padding:4px 6px;font-size:0.75rem" title="Dismiss" onclick="handleSignalStatus(${s.id}, 'dismissed')">✕</button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function copySignalPitchText(text) {
+    if (!text) return;
+    const clean = text.replace(/&quot;/g, '"');
+    navigator.clipboard.writeText(clean).then(() => {
+        showToast('Pitch copied to clipboard! 📋', 'success');
+    }).catch(() => {
+        showToast('Pitch copied! 📋', 'success');
+    });
+}
+
+async function handleScanSignals() {
+    const spinner = document.getElementById('scanSpinner');
+    const btn = document.getElementById('btnScanSignals');
+    if (spinner) spinner.style.display = 'inline-block';
+    if (btn) btn.disabled = true;
+
+    try {
+        const res = await fetch('/api/crm/signals/scan', { method: 'POST' });
+        const data = await res.json();
+        showToast(`Scout scan complete! Found ${data.new_count || 0} signals 🎯`, 'success');
+        await fetchSignals();
+    } catch (e) {
+        showAlert({ title: 'Scan Error', message: 'Could not complete classifieds scan.', icon: '⚠️', type: 'error' });
+    } finally {
+        if (spinner) spinner.style.display = 'none';
+        if (btn) btn.disabled = false;
+    }
+}
+
+async function handleSignalStatus(sigId, newStatus) {
+    try {
+        await fetch(`/api/crm/signals/${sigId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus })
+        });
+        const match = cachedSignals.find(s => s.id === sigId);
+        if (match) match.status = newStatus;
+        renderSignalsTable(cachedSignals);
+        showToast(`Signal marked as ${newStatus}! 👍`, 'success');
+    } catch (e) {
+        showToast('Failed to update signal status', 'error');
+    }
+}
+
+function openSignalModal(sigId) {
+    const signal = cachedSignals.find(s => s.id === sigId);
+    if (!signal) return;
+
+    activeSignalId = sigId;
+    document.getElementById('spModalTitle').innerText = `🎯 Pitch: ${signal.title.substring(0, 35)}...`;
+    document.getElementById('spCategoryBadge').innerText = signal.category.toUpperCase().replace('_', ' ');
+    document.getElementById('spPostTitle').innerText = signal.title;
+    document.getElementById('spLocation').innerText = `📍 ${signal.location || 'Citrus Heights / Sacramento'}`;
+    document.getElementById('spPostUrl').href = signal.url;
+    document.getElementById('spPitchText').value = signal.suggested_pitch || '';
+
+    document.getElementById('btnCopySignalPitch').onclick = () => {
+        const text = document.getElementById('spPitchText').value;
+        copySignalPitchText(text);
+    };
+
+    document.getElementById('btnMarkSignalContacted').onclick = async () => {
+        await handleSignalStatus(sigId, 'contacted');
+        closeModal('modalSignalPitch');
+    };
+
+    openModal('modalSignalPitch');
+}
+
+// ─── 15. MODALS & LIGHTBOX HELPERS ─────────────────────
 function openModal(modalId) {
     const el = document.getElementById(modalId);
     if (el) el.style.display = 'flex';
