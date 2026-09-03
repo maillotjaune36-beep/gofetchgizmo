@@ -1442,6 +1442,15 @@ function renderSignalsTable(signals) {
         }
 
         const safePitch = (s.suggested_pitch || '').replace(/"/g, '&quot;');
+        const detectedPhone = s.contact_phone || extractPhoneFromText(s.title + ' ' + (s.location || '') + ' ' + (s.snippet || ''));
+        const detectedEmail = s.contact_email || extractEmailFromText(s.title + ' ' + (s.location || '') + ' ' + (s.snippet || ''));
+
+        let quickActionBtn = '';
+        if (detectedPhone) {
+            quickActionBtn = `<button class="btn-card primary" style="padding:4px 8px;font-size:0.75rem;background:#10b981;border-color:#10b981" title="1-Tap Text ${detectedPhone}" onclick="event.stopPropagation(); directSendSignalSMS(${s.id}, '${detectedPhone}')">💬 Text</button>`;
+        } else if (detectedEmail) {
+            quickActionBtn = `<button class="btn-card primary" style="padding:4px 8px;font-size:0.75rem;background:#3b82f6;border-color:#3b82f6" title="Send Email to ${detectedEmail}" onclick="event.stopPropagation(); directSendSignalEmail(${s.id}, '${detectedEmail}')">✉️ Email</button>`;
+        }
 
         return `
             <tr>
@@ -1454,21 +1463,87 @@ function renderSignalsTable(signals) {
                 </td>
                 <td><span style="font-size:0.85rem;color:var(--text-muted)">📍 ${s.location || 'Citrus Heights'}</span></td>
                 <td>
-                    <div style="font-size:0.82rem;color:#e2e8f0;background:rgba(255,255,255,0.03);padding:6px 10px;border-radius:6px;border:1px solid var(--border);max-height:75px;overflow:hidden;text-overflow:ellipsis;cursor:pointer" title="Click to copy pitch" onclick="copySignalPitchText('${safePitch}')">
+                    <div style="font-size:0.82rem;color:#e2e8f0;background:rgba(255,255,255,0.03);padding:6px 10px;border-radius:6px;border:1px solid var(--border);max-height:75px;overflow:hidden;text-overflow:ellipsis;cursor:pointer" title="Click to view outreach dispatcher" onclick="openSignalModal(${s.id})">
                         ${s.suggested_pitch || 'No pitch generated'}
                     </div>
                 </td>
                 <td>${statusBadge}</td>
                 <td>
                     <div style="display:flex;gap:4px;flex-wrap:wrap">
-                        <button class="btn-card" style="padding:4px 8px;font-size:0.75rem" onclick="copySignalPitchText('${safePitch}')">📋 Copy</button>
-                        <button class="btn-card primary" style="padding:4px 8px;font-size:0.75rem" onclick="openSignalModal(${s.id})">🎯 Pitch</button>
+                        ${quickActionBtn}
+                        <button class="btn-card primary" style="padding:4px 8px;font-size:0.75rem" onclick="openSignalModal(${s.id})">🎯 Pitch & Send</button>
                         <button class="btn-card" style="padding:4px 6px;font-size:0.75rem" title="Dismiss" onclick="handleSignalStatus(${s.id}, 'dismissed')">✕</button>
                     </div>
                 </td>
             </tr>
         `;
     }).join('');
+}
+
+function extractPhoneFromText(str) {
+    if (!str) return '';
+    const m = str.match(/(?:(?:\+?1\s*(?:[.-]\s*)?)?(?:\(\s*([2-9]1[02-9]|[2-9][02-8]1|[2-9][02-8][02-9])\s*\)|([2-9]1[02-9]|[2-9][02-8]1|[2-9][02-8][02-9]))\s*(?:[.-]\s*)?)?([2-9]1[02-9]|[2-9][02-9]1|[2-9][02-9]{2})\s*(?:[.-]\s*)?([0-9]{4})/);
+    return m ? m[0].trim() : '';
+}
+
+function extractEmailFromText(str) {
+    if (!str) return '';
+    const m = str.match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+    return m ? m[0].trim() : '';
+}
+
+async function directSendSignalSMS(sigId, phone, customPitch) {
+    const signal = cachedSignals.find(s => s.id === sigId);
+    const pitch = customPitch || (signal ? signal.suggested_pitch : '');
+
+    if (!phone) {
+        showToast('Please enter a valid phone number', 'error');
+        return;
+    }
+
+    // 1. Launch 1-tap native SMS pre-filled
+    openNativeSMS(phone, pitch);
+
+    // 2. Mark contacted & notify Telegram via backend
+    try {
+        await fetch(`/api/crm/signals/${sigId}/dispatch`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ method: 'sms', contact: phone, pitch: pitch })
+        });
+    } catch (e) {}
+
+    if (signal) signal.status = 'contacted';
+    renderSignalsTable(cachedSignals);
+    showToast(`1-Tap SMS opened for ${phone}! Signal marked as Contacted 🐾`, 'success');
+}
+
+async function directSendSignalEmail(sigId, email, customPitch) {
+    const signal = cachedSignals.find(s => s.id === sigId);
+    const pitch = customPitch || (signal ? signal.suggested_pitch : '');
+    const subject = `Go Fetch, Gizmo! - Junk Hauling & Cleanouts 🐾`;
+
+    if (!email || !email.includes('@')) {
+        showToast('Please enter a valid email address', 'error');
+        return;
+    }
+
+    // 1. Open native email client with pre-filled subject and pitch
+    const mailtoUrl = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(pitch)}`;
+    window.location.href = mailtoUrl;
+
+    // 2. Mark contacted & log via backend API
+    try {
+        await fetch(`/api/crm/signals/${sigId}/dispatch`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ method: 'email', contact: email, pitch: pitch, subject: subject })
+        });
+    } catch (e) {}
+
+    if (signal) signal.status = 'contacted';
+    renderSignalsTable(cachedSignals);
+    showToast(`Email opened for ${email}! Signal marked as Contacted ✉️`, 'success');
 }
 
 function copySignalPitchText(text) {
@@ -1521,20 +1596,71 @@ function openSignalModal(sigId) {
     if (!signal) return;
 
     activeSignalId = sigId;
-    document.getElementById('spModalTitle').innerText = `🎯 Pitch: ${signal.title.substring(0, 35)}...`;
+    document.getElementById('spModalTitle').innerText = `🎯 Dispatch Outreach: ${signal.title.substring(0, 32)}...`;
     document.getElementById('spCategoryBadge').innerText = signal.category.toUpperCase().replace('_', ' ');
     document.getElementById('spPostTitle').innerText = signal.title;
     document.getElementById('spLocation').innerText = `📍 ${signal.location || 'Citrus Heights / Sacramento'}`;
     document.getElementById('spPostUrl').href = signal.url;
     document.getElementById('spPitchText').value = signal.suggested_pitch || '';
 
+    // Contact detection & pre-fill
+    const detectedPhone = signal.contact_phone || extractPhoneFromText(signal.title + ' ' + (signal.location || '') + ' ' + (signal.snippet || ''));
+    const detectedEmail = signal.contact_email || extractEmailFromText(signal.title + ' ' + (signal.location || '') + ' ' + (signal.snippet || ''));
+    
+    const contactInput = document.getElementById('spContactInput');
+    const detectedBadge = document.getElementById('spContactDetectedBadge');
+    const btnCheckReply = document.getElementById('spBtnCheckReply');
+
+    if (btnCheckReply) btnCheckReply.href = signal.url;
+
+    if (detectedPhone) {
+        contactInput.value = detectedPhone;
+        detectedBadge.innerText = '📞 Phone detected from listing';
+        detectedBadge.style.color = 'var(--green)';
+    } else if (detectedEmail) {
+        contactInput.value = detectedEmail;
+        detectedBadge.innerText = '✉️ Email detected from listing';
+        detectedBadge.style.color = '#60a5fa';
+    } else {
+        contactInput.value = '';
+        detectedBadge.innerText = '💡 Click "Check Reply ↗" to view phone/email on Craigslist';
+        detectedBadge.style.color = 'var(--gold)';
+    }
+
     document.getElementById('btnCopySignalPitch').onclick = () => {
         const text = document.getElementById('spPitchText').value;
         copySignalPitchText(text);
     };
 
-    document.getElementById('btnMarkSignalContacted').onclick = async () => {
-        await handleSignalStatus(sigId, 'contacted');
+    document.getElementById('btnSendSignalSMS').onclick = async () => {
+        const contact = contactInput.value.trim();
+        const pitch = document.getElementById('spPitchText').value.trim();
+        if (!contact) {
+            showAlert({
+                title: 'Recipient Required',
+                message: 'Please enter a phone number or click "Check Reply ↗" on the Craigslist post to get their number.',
+                icon: '📱',
+                type: 'warning'
+            });
+            return;
+        }
+        await directSendSignalSMS(sigId, contact, pitch);
+        closeModal('modalSignalPitch');
+    };
+
+    document.getElementById('btnSendSignalEmail').onclick = async () => {
+        const contact = contactInput.value.trim();
+        const pitch = document.getElementById('spPitchText').value.trim();
+        if (!contact || !contact.includes('@')) {
+            showAlert({
+                title: 'Email Address Required',
+                message: 'Please enter a valid email address or Craigslist relay email.',
+                icon: '✉️',
+                type: 'warning'
+            });
+            return;
+        }
+        await directSendSignalEmail(sigId, contact, pitch);
         closeModal('modalSignalPitch');
     };
 

@@ -242,6 +242,11 @@ async function handleApiRoute(pathname, request, env) {
     const sigId = parts[parts.length - 1];
     return await handleUpdateSignal(sigId, request, env);
   }
+  if (pathname.includes("/api/crm/signals/") && pathname.endsWith("/dispatch") && request.method === "POST") {
+    const parts = pathname.split("/");
+    const sigId = parts[parts.length - 2];
+    return await handleDispatchSignal(sigId, request, env);
+  }
 
   return jsonResponse({ error: "Endpoint not found" }, 404);
 }
@@ -1591,6 +1596,12 @@ async function scrapeLiveCraigslist() {
         const pid = pidMatch ? pidMatch[1] : `cl_${signalCounter}_${Date.now()}`;
         const pitch = generateClassifiedPitch(cat.category, title, loc);
 
+        const fullText = `${title} ${loc} ${block}`;
+        const phoneMatch = fullText.match(/(?:(?:\+?1\s*(?:[.-]\s*)?)?(?:\(\s*([2-9]1[02-9]|[2-9][02-8]1|[2-9][02-8][02-9])\s*\)|([2-9]1[02-9]|[2-9][02-8]1|[2-9][02-8][02-9]))\s*(?:[.-]\s*)?)?([2-9]1[02-9]|[2-9][02-9]1|[2-9][02-9]{2})\s*(?:[.-]\s*)?([0-9]{4})/);
+        const emailMatch = fullText.match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+        const contactPhone = phoneMatch ? phoneMatch[0].trim() : "";
+        const contactEmail = emailMatch ? emailMatch[0].trim() : "";
+
         results.push({
           id: signalCounter++,
           cl_post_id: pid,
@@ -1600,6 +1611,8 @@ async function scrapeLiveCraigslist() {
           location: loc,
           snippet: title,
           suggested_pitch: pitch,
+          contact_phone: contactPhone,
+          contact_email: contactEmail,
           status: "new",
           published_at: new Date().toISOString()
         });
@@ -1729,3 +1742,65 @@ async function handleUpdateSignal(sigId, request, env) {
 
   return jsonResponse({ status: "updated", id: sigId, new_status: body.status });
 }
+
+async function handleDispatchSignal(sigId, request, env) {
+  let body = {};
+  try {
+    body = await request.json();
+  } catch (e) {}
+
+  const method = body.method || "sms";
+  const contact = body.contact || "";
+  const pitch = body.pitch || "";
+
+  // Update status in local cache
+  const match = liveSignalsCache.find(s => String(s.id) === String(sigId) || s.cl_post_id === String(sigId));
+  if (match) {
+    match.status = "contacted";
+  }
+
+  // Update in Supabase if configured
+  const sbUrl = getSupabaseUrl(env);
+  const sbKey = getSupabaseKey(env);
+  if (sbUrl && sbKey) {
+    try {
+      await fetch(`${sbUrl}/rest/v1/classified_signals?id=eq.${sigId}`, {
+        method: "PATCH",
+        headers: {
+          "apikey": sbKey,
+          "Authorization": `Bearer ${sbKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ status: "contacted" })
+      });
+    } catch (e) {
+      console.error("Supabase dispatch update error:", e);
+    }
+  }
+
+  // Send Telegram notification to Brandon
+  const tg = getTelegramConfig(env);
+  if (tg.isConfigured) {
+    const tgMsg = `🎯 *Classified Outreach Dispatched!* 🐾\nMethod: ${method.toUpperCase()}\nTo: \`${contact || 'Direct'}\`\n\n*Pitch Sent:*\n_${pitch.slice(0, 300)}_`;
+    try {
+      await fetch(`https://api.telegram.org/bot${tg.botToken}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: tg.chatId,
+          text: tgMsg,
+          parse_mode: "Markdown"
+        })
+      });
+    } catch (err) {}
+  }
+
+  return jsonResponse({
+    status: "dispatched",
+    id: sigId,
+    method: method,
+    contact: contact,
+    new_status: "contacted"
+  });
+}
+

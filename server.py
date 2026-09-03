@@ -428,6 +428,29 @@ async def update_signal_status_endpoint(signal_id: int, payload: SignalStatusUpd
     success = update_classified_signal_status(signal_id, payload.status)
     return {"status": "updated" if success else "failed", "id": signal_id, "new_status": payload.status}
 
+class SignalDispatchRequest(BaseModel):
+    method: str = "sms"  # 'sms' or 'email'
+    contact: str = ""
+    pitch: str = ""
+    subject: Optional[str] = "Go Fetch, Gizmo! - Junk Hauling & Cleanouts 🐾"
+
+@app.post("/api/crm/signals/{signal_id}/dispatch")
+async def dispatch_signal_endpoint(signal_id: int, payload: SignalDispatchRequest):
+    update_classified_signal_status(signal_id, "contacted")
+    if payload.method == "email" and "@" in payload.contact:
+        try:
+            from engine.b2b_dispatcher import send_b2b_email
+            send_b2b_email(payload.contact, payload.subject, payload.pitch)
+        except Exception as e:
+            print(f"[Signal Dispatch Error] Email send failed: {e}")
+    return {
+        "status": "dispatched",
+        "id": signal_id,
+        "method": payload.method,
+        "contact": payload.contact,
+        "new_status": "contacted"
+    }
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
     host = os.getenv("HOST", "0.0.0.0")
