@@ -402,7 +402,11 @@ async def list_classified_signals(
     status: Optional[str] = "all",
     limit: Optional[int] = 60
 ):
-    return get_classified_signals(category=category, status=status, limit=limit)
+    signals = get_classified_signals(category=category, status=status, limit=limit)
+    if not signals:
+        scout_all_signals(save_to_db=True, max_per_cat=10)
+        signals = get_classified_signals(category=category, status=status, limit=limit)
+    return signals
 
 class SignalScanRequest(BaseModel):
     max_per_cat: Optional[int] = 10

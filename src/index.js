@@ -1478,46 +1478,121 @@ function getMockEstimate() {
   };
 }
 
-// ─── CLASSIFIED SIGNALS (CRISIS & CURB ALERT SNIPER) ───
+// ─── CLASSIFIED SIGNALS (REAL-TIME LIVE CRAIGSLIST SNIPER) ───
 
-const DEFAULT_SIGNALS = [
+let liveSignalsCache = [];
+let lastScrapeTime = 0;
+
+const CL_CATEGORIES = [
   {
-    id: 1,
-    cl_post_id: "cl_7891234",
-    category: "curb_alert",
-    title: "Free curb alert: sectional couch & wood pallets",
-    url: "https://sacramento.craigslist.org/zip/d/citrus-heights-free-curb-alert/7891234.html",
-    location: "Citrus Heights",
-    snippet: "Sectional sofa and wooden pallets on curb, needs to be gone by tonight before trash day.",
-    suggested_pitch: "Hey! If nobody grabs that sectional couch off the curb by this evening and you just want it gone so the city doesn't cite you, I can swing by in my truck and haul it straight to the transfer station for a quick $60–$80 neighbor flat rate. Text Brandon at (916) 546-8537 if you want it cleared!",
-    status: "new",
-    published_at: new Date().toISOString()
+    category: 'curb_alert',
+    name: 'Curb Alerts & Bulky Free Junk',
+    url: 'https://www.craigslist.org/search/area/sacramento?cat=zip&query=curb+alert|couch|furniture|yard|debris|cleanout'
   },
   {
-    id: 2,
-    cl_post_id: "cl_7891235",
-    category: "landlord_vacancy",
-    title: "$2,100 / 3br - Single Story Rental Home Available Now",
-    url: "https://sacramento.craigslist.org/apa/d/citrus-heights-single-story-rental/7891235.html",
-    location: "Citrus Heights",
-    snippet: "Spacious 3 bedroom home for rent, recently vacated and getting ready for new tenants.",
-    suggested_pitch: "Hi! Saw your rental listing in Citrus Heights. If the previous tenant left behind any abandoned furniture, mattresses, or bulk trash during turnover, I run Go Fetch, Gizmo! hauling here in Citrus Heights. We do same-day cleanouts with before/after photos for deposit deductions. Text or call Brandon at (916) 546-8537 if you need anything cleared!",
-    status: "new",
-    published_at: new Date(Date.now() - 3600000).toISOString()
+    category: 'landlord_vacancy',
+    name: 'Rental Vacancies & Turnover Cleanouts',
+    url: 'https://www.craigslist.org/search/area/sacramento?cat=apa&query=citrus+heights|roseville|carmichael|fair+oaks|rancho+cordova'
   },
   {
-    id: 3,
-    cl_post_id: "cl_7891236",
-    category: "hauling_gig",
-    title: "Need someone with pickup truck for garage cleanout junk",
-    url: "https://sacramento.craigslist.org/lbs/d/sacramento-need-someone-with-pickup/7891236.html",
-    location: "Fair Oaks",
-    snippet: "Need someone with a truck to take 6-8 bags of garage junk and an old broken lawnmower to the dump today.",
-    suggested_pitch: "Hey neighbor! Brandon with Go Fetch, Gizmo! here in Citrus Heights 🐾 I have my truck ready and can haul that for you today at a fair flat rate. Text a photo to (916) 546-8537 or call me directly!",
-    status: "new",
-    published_at: new Date(Date.now() - 7200000).toISOString()
+    category: 'hauling_gig',
+    name: 'Labor & Hauling Gigs',
+    url: 'https://www.craigslist.org/search/area/sacramento?cat=lbs&query=haul|junk|moving|trash|dump'
   }
 ];
+
+function decodeHtml(html) {
+  return (html || "")
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function extractItemFromTitle(title) {
+  let clean = title || "";
+  clean = clean.replace(/\*+\s*curb\s*alert\s*\*+/gi, "");
+  clean = clean.replace(/curb\s*alert[:!\-\s]*/gi, "");
+  clean = clean.replace(/free[:!\-\s]*/gi, "");
+  clean = clean.replace(/\$[\d,]+/g, "");
+  clean = clean.replace(/(citrus heights|sacramento|roseville|carmichael|fair oaks|folsom|orangevale|antelope)$/gi, "");
+  clean = clean.replace(/[^\w\s\-/]/g, "").trim();
+  return clean.length > 2 ? clean : "item on the curb";
+}
+
+function generateClassifiedPitch(category, title, location) {
+  const loc = location || "Citrus Heights";
+  const item = extractItemFromTitle(title);
+  if (category === "curb_alert") {
+    return `Hey! If nobody grabs that ${item} off the curb by this evening and you just want it gone so the city doesn't cite you, I can swing by in my truck and haul it straight to the transfer station for a quick $60–$80 neighbor flat rate. Text Brandon at (916) 546-8537 if you want it cleared!`;
+  }
+  if (category === "landlord_vacancy") {
+    return `Hi! Saw your rental listing in ${loc}. If the previous tenant left behind any abandoned furniture, mattresses, or bulk trash during turnover, I run Go Fetch, Gizmo! hauling here in Citrus Heights. We do same-day cleanouts with before/after photos for deposit deductions. Text or call Brandon at (916) 546-8537 if you need anything cleared!`;
+  }
+  return `Hey neighbor! Brandon with Go Fetch, Gizmo! here in Citrus Heights 🐾 I have my truck ready and can haul that for you today at a fair flat rate. Text a photo to (916) 546-8537 or call me directly!`;
+}
+
+async function scrapeLiveCraigslist() {
+  const results = [];
+  let signalCounter = 1;
+
+  for (const cat of CL_CATEGORIES) {
+    try {
+      const res = await fetch(cat.url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Referer": "https://sacramento.craigslist.org/"
+        }
+      });
+
+      if (!res.ok) continue;
+      const text = await res.text();
+      const itemRegex = /<li[^>]+class="[^"]*cl-static-search-result[^"]*"[^>]*>([\s\S]*?)<\/li>/gi;
+      const matches = [...text.matchAll(itemRegex)];
+
+      for (let i = 0; i < Math.min(matches.length, 15); i++) {
+        const block = matches[i][1];
+        const titleMatch = block.match(/<div class="title">([^<]+)<\/div>/i) || block.match(/<a[^>]+>([^<]+)<\/a>/i);
+        const linkMatch = block.match(/href="([^"]+)"/i);
+        const locMatch = block.match(/<div class="location">([^<]+)<\/div>/i);
+        const pidMatch = matches[i][0].match(/data-pid="([^"]+)"/i);
+
+        const title = decodeHtml(titleMatch ? titleMatch[1] : 'Classified Item');
+        let link = linkMatch ? linkMatch[1] : '';
+        if (link && link.startsWith("/")) link = `https://sacramento.craigslist.org${link}`;
+        const loc = decodeHtml(locMatch ? locMatch[1] : 'Citrus Heights / Sacramento');
+        const pid = pidMatch ? pidMatch[1] : `cl_${signalCounter}_${Date.now()}`;
+        const pitch = generateClassifiedPitch(cat.category, title, loc);
+
+        results.push({
+          id: signalCounter++,
+          cl_post_id: pid,
+          category: cat.category,
+          title,
+          url: link,
+          location: loc,
+          snippet: title,
+          suggested_pitch: pitch,
+          status: "new",
+          published_at: new Date().toISOString()
+        });
+      }
+    } catch (err) {
+      console.error(`Live scrape error for ${cat.name}:`, err);
+    }
+  }
+
+  if (results.length > 0) {
+    liveSignalsCache = results;
+    lastScrapeTime = Date.now();
+  }
+
+  return liveSignalsCache;
+}
 
 async function handleGetSignals(request, env) {
   const url = new URL(request.url);
@@ -1527,6 +1602,7 @@ async function handleGetSignals(request, env) {
   const sbUrl = getSupabaseUrl(env);
   const sbKey = getSupabaseKey(env);
 
+  // 1. Try Supabase first
   if (sbUrl && sbKey) {
     try {
       let query = `${sbUrl}/rest/v1/classified_signals?select=*&order=id.desc&limit=60`;
@@ -1538,26 +1614,35 @@ async function handleGetSignals(request, env) {
       });
       if (res.ok) {
         const rows = await res.json();
-        if (rows.length > 0) return jsonResponse(rows);
+        if (rows && rows.length > 0) return jsonResponse(rows);
       }
     } catch (e) {
       console.error("Supabase get signals error:", e);
     }
   }
 
-  let filtered = DEFAULT_SIGNALS;
+  // 2. If Supabase has no data or is empty, scrape live Craigslist feeds directly
+  if (liveSignalsCache.length === 0 || Date.now() - lastScrapeTime > 300000) {
+    await scrapeLiveCraigslist();
+  }
+
+  let filtered = liveSignalsCache;
   if (category && category !== "all") filtered = filtered.filter(s => s.category === category);
   if (status && status !== "all") filtered = filtered.filter(s => s.status === status);
   return jsonResponse(filtered);
 }
 
 async function handleScanSignals(request, env) {
+  // Always trigger fresh live scrape of Sacramento Craigslist
+  const liveListings = await scrapeLiveCraigslist();
+
   const sbUrl = getSupabaseUrl(env);
   const sbKey = getSupabaseKey(env);
 
-  if (sbUrl && sbKey) {
+  // Sync fresh listings to Supabase if configured
+  if (sbUrl && sbKey && liveListings.length > 0) {
     try {
-      for (const sig of DEFAULT_SIGNALS) {
+      for (const sig of liveListings) {
         await fetch(`${sbUrl}/rest/v1/classified_signals`, {
           method: "POST",
           headers: {
@@ -1569,14 +1654,16 @@ async function handleScanSignals(request, env) {
           body: JSON.stringify(sig)
         });
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error("Supabase save signals error:", e);
+    }
   }
 
   return jsonResponse({
     status: "success",
-    message: "Sacramento Classifieds & Craigslist feeds scanned",
-    new_count: DEFAULT_SIGNALS.length,
-    signals: DEFAULT_SIGNALS
+    message: `Scanned live Sacramento Craigslist feeds! Identified ${liveListings.length} real signals.`,
+    new_count: liveListings.length,
+    signals: liveListings
   });
 }
 
@@ -1585,6 +1672,13 @@ async function handleUpdateSignal(sigId, request, env) {
   const sbUrl = getSupabaseUrl(env);
   const sbKey = getSupabaseKey(env);
 
+  // Update in local cache
+  const match = liveSignalsCache.find(s => String(s.id) === String(sigId) || s.cl_post_id === String(sigId));
+  if (match) {
+    match.status = body.status;
+  }
+
+  // Update in Supabase
   if (sbUrl && sbKey) {
     try {
       await fetch(`${sbUrl}/rest/v1/classified_signals?id=eq.${sigId}`, {
