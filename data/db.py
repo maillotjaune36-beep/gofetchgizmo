@@ -33,19 +33,27 @@ try:
 except ImportError:
     PSYCOPG2_AVAILABLE = False
 
+_pg_failed = False
+
 def is_postgres() -> bool:
-    return bool(DATABASE_URL and DATABASE_URL.startswith("postgres") and PSYCOPG2_AVAILABLE)
+    global _pg_failed
+    return bool(DATABASE_URL and DATABASE_URL.startswith("postgres") and PSYCOPG2_AVAILABLE and not _pg_failed)
 
 def get_connection():
+    global _pg_failed
     if is_postgres():
-        conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
-        conn.autocommit = False
-        return conn
-    else:
-        os.makedirs(DB_PATH.parent, exist_ok=True)
-        conn = sqlite3.connect(str(DB_PATH))
-        conn.row_factory = sqlite3.Row
-        return conn
+        try:
+            conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor, connect_timeout=3)
+            conn.autocommit = False
+            return conn
+        except Exception as e:
+            print(f"[Gizmo DB Warning] Remote Postgres unreachable: {e}. Falling back to local SQLite ({DB_PATH})...")
+            _pg_failed = True
+
+    os.makedirs(DB_PATH.parent, exist_ok=True)
+    conn = sqlite3.connect(str(DB_PATH))
+    conn.row_factory = sqlite3.Row
+    return conn
 
 def execute_query(
     sql: str,
@@ -99,11 +107,10 @@ def execute_query(
 
 def init_db():
     """Create tables on startup (PostgreSQL or SQLite)"""
-    pg = is_postgres()
-    print(f"[Gizmo DB] Initializing Go Fetch, Gizmo! Database ({'Netlify PostgreSQL' if pg else 'Local SQLite'})...")
-
     conn = get_connection()
     cursor = conn.cursor()
+    pg = is_postgres()
+    print(f"[Gizmo DB] Initializing Go Fetch, Gizmo! Database ({'PostgreSQL' if pg else 'Local SQLite'})...")
 
     if pg:
         # PostgreSQL Schema

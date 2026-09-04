@@ -526,7 +526,8 @@
                 <div style="color:var(--text-muted);font-size:0.85rem">Loading job records...</div>
             </div>
 
-            <div style="display:flex;gap:0.75rem;justify-content:flex-end;margin-top:1.5rem">
+            <div style="display:flex;gap:0.75rem;justify-content:flex-end;margin-top:1.5rem;flex-wrap:wrap">
+                <button type="button" class="btn-card" id="cdBtnEmail" style="display:flex;align-items:center;gap:6px">✉️ Email Customer</button>
                 <button type="button" class="btn-card primary" id="cdBtnText">💬 Text Customer</button>
                 <button type="button" class="btn-card" onclick="closeModal('modalCustomerDetail')">Close</button>
             </div>
@@ -555,23 +556,31 @@
         </div>
     </div>
 
-    <!-- 6. MANUAL REVIEW SMS MODAL -->
+    <!-- 6. MANUAL REVIEW REQUEST MODAL -->
     <div class="crm-modal" id="modalSendReview">
         <div class="modal-content">
             <h3 class="modal-title">⭐ Send Google Review Request</h3>
-            <p class="modal-subtitle">Dispatch the 5-star Google review SMS with the Gizmo treat hook.</p>
+            <p class="modal-subtitle">Dispatch 5-star Google review request with Gizmo's bacon treat hook.</p>
             <form id="formSendReview">
                 <div class="form-group" style="margin-bottom:1rem">
                     <label class="form-label">Customer Name</label>
                     <input type="text" class="composer-input" id="srName" placeholder="e.g. David" required>
                 </div>
-                <div class="form-group" style="margin-bottom:1.25rem">
-                    <label class="form-label">Phone Number</label>
-                    <input type="tel" class="composer-input" id="srPhone" placeholder="(916) 555-0199" required>
+                <div class="form-group" style="margin-bottom:1rem">
+                    <label class="form-label">Phone Number (for SMS)</label>
+                    <input type="tel" class="composer-input" id="srPhone" placeholder="(916) 555-0199">
                 </div>
-                <div style="display:flex;gap:0.75rem;justify-content:flex-end">
+                <div class="form-group" style="margin-bottom:1.25rem">
+                    <label class="form-label">Customer Email (for 1-Click Gmail)</label>
+                    <input type="email" class="composer-input" id="srEmail" placeholder="e.g. client@gmail.com">
+                </div>
+                <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-bottom:1.25rem;font-size:0.8rem;color:var(--text-muted);display:flex;align-items:center;gap:6px">
+                    <span>✉️ Sender: <strong style="color:var(--orange-light)">gofetchgizmo@gmail.com</strong></span>
+                </div>
+                <div style="display:flex;gap:0.75rem;justify-content:flex-end;flex-wrap:wrap">
                     <button type="button" class="btn-card" onclick="closeModal('modalSendReview')">Cancel</button>
-                    <button type="submit" class="btn-card green">Send Review SMS ⭐</button>
+                    <button type="button" class="btn-card primary" id="btnSendReviewEmail" style="background:#2563EB;border-color:#2563EB">✉️ 1-Click Email (Gmail)</button>
+                    <button type="submit" class="btn-card green" id="btnSendReviewSMS">💬 Send SMS ⭐</button>
                 </div>
             </form>
         </div>
@@ -580,8 +589,15 @@
     <!-- 7. B2B PITCH PREVIEW & SEND MODAL -->
     <div class="crm-modal" id="modalB2BPitch">
         <div class="modal-content large">
-            <h3 class="modal-title" id="bpTitle">B2B Partnership Pitch</h3>
-            <p class="modal-subtitle" id="bpSubtitle">Review and customize the tailored email before dispatching.</p>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.5rem">
+                <div>
+                    <h3 class="modal-title" id="bpTitle">B2B Partnership Pitch</h3>
+                    <p class="modal-subtitle" id="bpSubtitle">Review and customize the tailored email before dispatching.</p>
+                </div>
+                <div style="background:rgba(37,99,235,0.12);border:1px solid rgba(37,99,235,0.3);color:#60A5FA;padding:4px 10px;border-radius:6px;font-size:0.78rem;font-weight:700">
+                    From: gofetchgizmo@gmail.com 🐾
+                </div>
+            </div>
             <form id="formSendB2BPitch">
                 <input type="hidden" id="bpProspectId">
                 <div class="form-group" style="margin-bottom:1rem">
@@ -592,9 +608,12 @@
                     <label class="form-label">Email Body</label>
                     <textarea class="form-textarea" id="bpBody" rows="8" required></textarea>
                 </div>
-                <div style="display:flex;gap:0.75rem;justify-content:flex-end">
-                    <button type="button" class="btn-card" onclick="closeModal('modalB2BPitch')">Cancel</button>
-                    <button type="submit" class="btn-card primary">Send Pitch Email 🚀</button>
+                <div style="display:flex;gap:0.75rem;justify-content:space-between;align-items:center;flex-wrap:wrap">
+                    <span style="font-size:0.75rem;color:var(--text-muted)">🚀 1-Click opens Gmail Web Compose pre-filled &amp; logs to CRM</span>
+                    <div style="display:flex;gap:0.75rem">
+                        <button type="button" class="btn-card" onclick="closeModal('modalB2BPitch')">Cancel</button>
+                        <button type="submit" class="btn-card primary" id="btnSendB2BPitch">✉️ 1-Click Send Email (Gmail) 🚀</button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -726,12 +745,12 @@
             </div>
 
             <div style="display:flex;gap:0.6rem;align-items:center;font-size:0.75rem;color:var(--text-muted);margin-top:-0.5rem;margin-bottom:1rem;flex-wrap:wrap">
-                <span>💻 Desktop SMS Hub:</span>
-                <a href="https://messages.google.com/web" target="_blank" style="color:var(--orange-light);text-decoration:none">Google Messages Web ↗</a>
+                <span>✉️ From: <strong style="color:var(--orange-light)">gofetchgizmo@gmail.com</strong></span>
                 <span>•</span>
-                <a href="https://voice.google.com/u/0/messages" target="_blank" style="color:var(--orange-light);text-decoration:none">Google Voice ↗</a>
+                <span>💻 SMS Hub:</span>
+                <a href="https://messages.google.com/web" target="_blank" style="color:var(--orange-light);text-decoration:none">Google Messages ↗</a>
                 <span>•</span>
-                <span style="color:var(--green)">📲 Instant Telegram Beam Active</span>
+                <span style="color:var(--green)">📲 Telegram Beam Active</span>
             </div>
 
             <!-- DIRECT DISPATCH ACTIONS -->
@@ -739,7 +758,7 @@
                 <button type="button" class="btn-card" onclick="closeModal('modalSignalPitch')">Close</button>
                 <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
                     <button type="button" class="btn-card" id="btnCopySignalPitch" title="Copy to clipboard">📋 Copy</button>
-                    <button type="button" class="btn-card" id="btnSendSignalEmail" style="display:flex;align-items:center;gap:6px">✉️ Send Email</button>
+                    <button type="button" class="btn-card primary" id="btnSendSignalEmail" style="display:flex;align-items:center;gap:6px;background:#2563EB;border-color:#2563EB">✉️ 1-Click Email (Gmail)</button>
                     <button type="button" class="btn-card primary" id="btnSendSignalSMS" style="display:flex;align-items:center;gap:6px;background:var(--orange-primary)">💬 1-Tap Text (SMS)</button>
                 </div>
             </div>
@@ -751,6 +770,6 @@
 
     <!-- SUPABASE JS SDK & CRM SCRIPT -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="/crm.js?v=3.2"></script>
+    <script src="/crm.js?v=3.3"></script>
 </body>
 </html>

@@ -326,6 +326,31 @@ function initEventListeners() {
     const formSendReview = document.getElementById('formSendReview');
     if (formSendReview) formSendReview.addEventListener('submit', handleSendManualReview);
 
+    const btnSendReviewEmail = document.getElementById('btnSendReviewEmail');
+    if (btnSendReviewEmail) {
+        btnSendReviewEmail.addEventListener('click', () => {
+            const name = document.getElementById('srName').value.trim();
+            const email = document.getElementById('srEmail') ? document.getElementById('srEmail').value.trim() : '';
+            if (!email) {
+                showToast('Please enter an email address for 1-Click Gmail dispatch', 'error');
+                return;
+            }
+            const reviewUrl = getGoogleReviewUrl();
+            closeModal('modalSendReview');
+            sendReviewEmailDirect(name, email, reviewUrl);
+
+            try {
+                fetch('/api/crm/reviews/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name, email: email, review_url: reviewUrl })
+                });
+                fetchReviews();
+                fetchStats();
+            } catch (e) {}
+        });
+    }
+
     // B2B Whale Engine
     const btnLaunchB2B = document.getElementById('btnLaunchB2B');
     if (btnLaunchB2B) btnLaunchB2B.addEventListener('click', launchB2BOutbound);
@@ -598,6 +623,32 @@ function showDesktopSMSPrompt(phone, message) {
         icon: '📱',
         type: 'info'
     });
+}
+
+// ─── 7. UNIVERSAL 1-CLICK EMAIL DISPATCHER (gofetchgizmo@gmail.com) ───
+const GIZMO_OUTREACH_EMAIL = 'gofetchgizmo@gmail.com';
+
+function openOneClickEmail({ to, subject, body }) {
+    if (!to) {
+        showToast('Please provide a recipient email address', 'error');
+        return false;
+    }
+    const cleanTo = to.trim();
+    const encodedTo = encodeURIComponent(cleanTo);
+    const encodedSubject = encodeURIComponent(subject || '');
+    const encodedBody = encodeURIComponent(body || '');
+
+    // Web Gmail Compose URL (direct 1-click in browser from gofetchgizmo@gmail.com)
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodedTo}&su=${encodedSubject}&body=${encodedBody}`;
+    const mailtoUrl = `mailto:${encodedTo}?subject=${encodedSubject}&body=${encodedBody}`;
+
+    // Try opening Gmail Web Compose in a new tab
+    const win = window.open(gmailUrl, '_blank');
+    if (!win || win.closed || typeof win.closed === 'undefined') {
+        // Fallback to mailto if browser blocked popups
+        window.location.href = mailtoUrl;
+    }
+    return true;
 }
 
 async function updateJobStatus(jobId, newStatus) {
@@ -1025,11 +1076,24 @@ function renderCustomerTable(customers) {
                 <td style="color:var(--green);font-weight:700">$${c.total_revenue || 0}</td>
                 <td>${c.gate_code || c.notes || 'None'}</td>
                 <td>
-                    <button class="btn-card" onclick="event.stopPropagation(); startChatWithCustomer('${c.phone}')">💬 Text</button>
+                    <div style="display:flex;gap:4px">
+                        ${c.email ? `<button class="btn-card" style="padding:4px 8px;font-size:0.75rem;background:#2563EB;border-color:#2563EB;color:#FFF" onclick="event.stopPropagation(); openCustomerEmail('${c.email}', '${(c.name || 'Neighbor').replace(/'/g, "\\'")}')" title="1-Click Email from gofetchgizmo@gmail.com">✉️</button>` : ''}
+                        <button class="btn-card" onclick="event.stopPropagation(); startChatWithCustomer('${c.phone}')">💬 Text</button>
+                    </div>
                 </td>
             </tr>
         `;
     }).join('');
+}
+
+function openCustomerEmail(email, name) {
+    if (!email) return;
+    const custName = (name || 'Neighbor').split(' ')[0];
+    const subject = `Go Fetch, Gizmo! - Junk Hauling & Cleanouts 🐾`;
+    const body = `Hi ${custName},\n\nBrandon here from Go Fetch, Gizmo! 🐾 Following up regarding your hauling and cleanout needs.\n\nLet me know if you need any items hauled away or have any questions!\n\nBest,\nBrandon & Gizmo\nGo Fetch, Gizmo! | (916) 546-8537\ngofetchgizmo@gmail.com`;
+
+    openOneClickEmail({ to: email, subject, body });
+    showToast(`✉️ Gmail opened from gofetchgizmo@gmail.com for ${email}! 🐾`, 'success');
 }
 
 function handleCustomerSearch(e) {
@@ -1060,6 +1124,19 @@ async function openCustomerModal(customerId) {
         closeModal('modalCustomerDetail');
         startChatWithCustomer(customer.phone);
     };
+
+    const btnEmail = document.getElementById('cdBtnEmail');
+    if (btnEmail) {
+        if (customer.email) {
+            btnEmail.style.display = 'inline-flex';
+            btnEmail.onclick = () => {
+                closeModal('modalCustomerDetail');
+                openCustomerEmail(customer.email, customer.name);
+            };
+        } else {
+            btnEmail.style.display = 'none';
+        }
+    }
 
     // Load past job history
     const histContainer = document.getElementById('cdJobHistory');
@@ -1178,26 +1255,47 @@ async function fetchReviews() {
     }
 }
 
+function sendReviewEmailDirect(name, email, reviewUrl) {
+    if (!email) return;
+    const custName = (name || 'Neighbor').split(' ')[0];
+    const url = reviewUrl || getGoogleReviewUrl();
+    const subject = `🐾 Quick favor from Brandon & Gizmo!`;
+    const body = `Hey ${custName}!\n\nBrandon here from Go Fetch, Gizmo! 🐾 Hope you're loving all that cleared-out space!\n\nIf you have 15 seconds, could you drop Gizmo a quick 5-star Google review?\n⭐⭐⭐⭐⭐ ${url}\n\n(Gizmo gets an extra bacon treat for every 5-star review! 🐶🥓)\n\nThank you so much for supporting our local business,\nBrandon & Gizmo\nGo Fetch, Gizmo! Hauling & Cleanouts\n(916) 546-8537 | gofetchgizmo@gmail.com`;
+
+    openOneClickEmail({ to: email, subject, body });
+    showToast(`✉️ Review email composer opened from gofetchgizmo@gmail.com for ${email}! ⭐`, 'success');
+}
+
 async function handleSendManualReview(e) {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     const name = document.getElementById('srName').value.trim();
     const phone = document.getElementById('srPhone').value.trim();
+    const email = document.getElementById('srEmail') ? document.getElementById('srEmail').value.trim() : '';
     const reviewUrl = getGoogleReviewUrl();
+
+    if (!phone && !email) {
+        showToast('Please provide either a phone number or email address', 'error');
+        return;
+    }
 
     try {
         await fetch('/api/crm/reviews/send', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: name, phone: phone, review_url: reviewUrl })
+            body: JSON.stringify({ name: name, phone: phone, email: email, review_url: reviewUrl })
         });
         closeModal('modalSendReview');
         document.getElementById('formSendReview').reset();
         
-        // 1-Tap native SMS dispatch with custom Google Review URL & bacon treat hook
-        const reviewMsg = `Hey ${name.split(' ')[0] || 'Neighbor'}! Brandon here from Go Fetch, Gizmo! 🐾 Hope you're loving all that cleared-out space! If you have 15 seconds, could you drop Gizmo a quick 5-star Google review? ⭐⭐⭐⭐⭐ ${reviewUrl} (Gizmo gets an extra bacon treat for every 5-star review! 🐶🥓) Thanks again!`;
-        openNativeSMS(phone, reviewMsg);
+        if (phone) {
+            const reviewMsg = `Hey ${name.split(' ')[0] || 'Neighbor'}! Brandon here from Go Fetch, Gizmo! 🐾 Hope you're loving all that cleared-out space! If you have 15 seconds, could you drop Gizmo a quick 5-star Google review? ⭐⭐⭐⭐⭐ ${reviewUrl} (Gizmo gets an extra bacon treat for every 5-star review! 🐶🥓) Thanks again!`;
+            openNativeSMS(phone, reviewMsg);
+            showToast(`Messages app opened with 5-Star review text for ${name}! ⭐`, 'success');
+        }
 
-        showToast(`Messages app opened with 5-Star review text for ${name}! ⭐`, 'success');
+        if (email) {
+            sendReviewEmailDirect(name, email, reviewUrl);
+        }
 
         fetchReviews();
         fetchStats();
@@ -1211,31 +1309,68 @@ async function fetchB2B() {
     try {
         const res = await fetch('/api/crm/b2b');
         cachedB2B = await res.json();
-        const tbody = document.getElementById('b2bTableBody');
-
-        if (!tbody) return;
-
-        if (cachedB2B.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center">No B2B accounts found. Click Launch Outbound to harvest leads.</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = cachedB2B.map(p => `
-            <tr>
-                <td><strong>${p.company_name}</strong></td>
-                <td>${p.contact_name || 'Manager'}</td>
-                <td><span class="badge-type b2b">${p.category}</span></td>
-                <td>${p.city}</td>
-                <td><a href="mailto:${p.email}" style="color:var(--text-muted);text-decoration:none">${p.email}</a></td>
-                <td>${p.phone || 'N/A'}</td>
-                <td><span style="color:${p.status === 'emailed' ? 'var(--gold)' : 'var(--blue)'};font-weight:700">${(p.status || 'scouted').toUpperCase()}</span></td>
-                <td>
-                    <button class="btn-card primary" style="padding:4px 8px;font-size:0.75rem" onclick="openB2BPitchModal(${p.id})">Preview Pitch ✉️</button>
-                </td>
-            </tr>
-        `).join('');
+        renderB2BTable();
     } catch (e) {
         console.error(e);
+    }
+}
+
+function renderB2BTable() {
+    const tbody = document.getElementById('b2bTableBody');
+    if (!tbody) return;
+
+    if (!cachedB2B || cachedB2B.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center">No B2B accounts found. Click Launch Outbound to harvest leads.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = cachedB2B.map(p => `
+        <tr>
+            <td><strong>${p.company_name}</strong></td>
+            <td>${p.contact_name || 'Manager'}</td>
+            <td><span class="badge-type b2b">${p.category}</span></td>
+            <td>${p.city}</td>
+            <td><a href="javascript:void(0)" onclick="quickEmailB2B(${p.id})" style="color:var(--orange-light);text-decoration:none;font-weight:600" title="1-Click Send via Gmail (gofetchgizmo@gmail.com)">✉️ ${p.email}</a></td>
+            <td>${p.phone || 'N/A'}</td>
+            <td><span style="color:${p.status === 'emailed' || p.status === 'pitched' ? 'var(--gold)' : 'var(--blue)'};font-weight:700">${(p.status || 'scouted').toUpperCase()}</span></td>
+            <td>
+                <div style="display:flex;gap:4px">
+                    <button class="btn-card primary" style="padding:4px 8px;font-size:0.75rem;background:#2563EB;border-color:#2563EB" onclick="quickEmailB2B(${p.id})" title="1-Click Send via Gmail (gofetchgizmo@gmail.com)">✉️ 1-Click</button>
+                    <button class="btn-card" style="padding:4px 8px;font-size:0.75rem" onclick="openB2BPitchModal(${p.id})">Preview ↗</button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+async function quickEmailB2B(prospectId) {
+    const prospect = (cachedB2B || []).find(p => String(p.id) === String(prospectId));
+    if (!prospect || !prospect.email) {
+        showToast('No prospect email available', 'error');
+        return;
+    }
+    const pitch = generateB2BPitchClient(prospect);
+    
+    // 1. Open 1-Click Gmail Compose from gofetchgizmo@gmail.com
+    openOneClickEmail({ to: prospect.email, subject: pitch.subject, body: pitch.body });
+
+    // 2. Log dispatch via API
+    try {
+        await fetch('/api/b2b/send-one', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                prospect_id: prospectId,
+                subject: pitch.subject,
+                body: pitch.body,
+                email: prospect.email
+            })
+        });
+        prospect.status = 'pitched';
+        renderB2BTable();
+        showToast(`✉️ 1-Click Gmail opened from gofetchgizmo@gmail.com for ${prospect.company_name}! 🚀`, 'success');
+    } catch (e) {
+        showToast(`Gmail opened for ${prospect.email}`, 'info');
     }
 }
 
@@ -1311,15 +1446,25 @@ async function openB2BPitchModal(prospectId) {
 }
 
 async function handleSendSingleB2BPitch(e) {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     const prospectId = parseInt(document.getElementById('bpProspectId').value, 10);
     const subject = document.getElementById('bpSubject').value.trim();
     const body = document.getElementById('bpBody').value.trim();
     const prospect = (cachedB2B || []).find(p => String(p.id) === String(prospectId));
     const targetEmail = prospect ? prospect.email : '';
 
+    if (!targetEmail) {
+        showToast('No recipient email available', 'error');
+        return;
+    }
+
     try {
-        const res = await fetch('/api/b2b/send-one', {
+        // 1. Open 1-Click Gmail Web Compose pre-filled from gofetchgizmo@gmail.com
+        openOneClickEmail({ to: targetEmail, subject, body });
+        closeModal('modalB2BPitch');
+
+        // 2. Track & log dispatch via backend API
+        await fetch('/api/b2b/send-one', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1329,25 +1474,14 @@ async function handleSendSingleB2BPitch(e) {
                 email: targetEmail
             })
         });
-        const result = await res.json();
-        closeModal('modalB2BPitch');
 
-        // Open native email client pre-filled so Brandon can send with 1 click
-        if (targetEmail) {
-            const mailtoUrl = `mailto:${targetEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-            window.location.href = mailtoUrl;
-        }
-        
-        await showAlert({
-            title: 'Pitch Dispatched! 🚀',
-            message: `Personalized commercial partnership pitch was queued and opened in your email client for ${result.email || targetEmail}!`,
-            icon: '✉️',
-            type: 'success'
-        });
+        if (prospect) prospect.status = 'pitched';
+        renderB2BTable();
 
+        showToast(`✉️ Gmail opened from gofetchgizmo@gmail.com for ${targetEmail}! Marked as Pitched 🚀`, 'success');
         fetchB2B();
     } catch (e) {
-        showAlert({ title: 'Dispatch Error', message: 'Could not dispatch B2B pitch email.', icon: '⚠️', type: 'error' });
+        showToast(`Gmail opened for ${targetEmail}`, 'info');
     }
 }
 
@@ -1559,9 +1693,8 @@ async function directSendSignalEmail(sigId, email, customPitch) {
         return;
     }
 
-    // 1. Open native email client with pre-filled subject and pitch
-    const mailtoUrl = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(pitch)}`;
-    window.location.href = mailtoUrl;
+    // 1. Open 1-Click Gmail Web Compose pre-filled from gofetchgizmo@gmail.com
+    openOneClickEmail({ to: email, subject: subject, body: pitch });
 
     // 2. Mark contacted & log via backend API
     try {
@@ -1574,7 +1707,7 @@ async function directSendSignalEmail(sigId, email, customPitch) {
 
     if (signal) signal.status = 'contacted';
     renderSignalsTable(cachedSignals);
-    showToast(`Email opened for ${email}! Signal marked as Contacted ✉️`, 'success');
+    showToast(`✉️ Gmail opened from gofetchgizmo@gmail.com for ${email}! Marked as Contacted 🎯`, 'success');
 }
 
 function copySignalPitchText(text) {

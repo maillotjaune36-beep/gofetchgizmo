@@ -93,13 +93,15 @@ def test_crm_pipeline():
     assert len(res_history.json()) >= 1
     print(f"   [OK] GET /api/crm/customers/{sarah['id']}/jobs -> {len(res_history.json())} historical jobs retrieved")
 
-    # 10. Manual Review Request Trigger
+    # 10. Manual Review Request Trigger (SMS & Email)
     res_man_rev = client.post("/api/crm/reviews/send", json={
         "name": "Sarah Jenkins",
-        "phone": "+19165550199"
+        "phone": "+19165550199",
+        "email": "sarah.jenkins@example.com"
     })
     assert res_man_rev.status_code == 200
-    print("   [OK] POST /api/crm/reviews/send -> Manual Review SMS dispatched")
+    assert res_man_rev.json()["from"] == "gofetchgizmo@gmail.com"
+    print("   [OK] POST /api/crm/reviews/send -> Review Request dispatched via SMS & Email from gofetchgizmo@gmail.com")
 
     # 11. Test 2-Way SMS Live Inbox
     res_chat = client.post("/api/crm/inbox/send", json={
@@ -130,12 +132,36 @@ def test_crm_pipeline():
     res_send_one = client.post("/api/b2b/send-one", json={
         "prospect_id": b2b_id,
         "subject": pitch_data["pitch"]["subject"],
-        "body": pitch_data["pitch"]["body"]
+        "body": pitch_data["pitch"]["body"],
+        "email": "elena@sacpremierprop.com"
     })
     assert res_send_one.status_code == 200
-    print("   [OK] POST /api/b2b/send-one -> Single B2B Pitch dispatched")
+    assert res_send_one.json()["from"] == "gofetchgizmo@gmail.com"
+    print("   [OK] POST /api/b2b/send-one -> Single B2B Pitch dispatched from gofetchgizmo@gmail.com")
 
-    # 13. Test Job Deletion Endpoint
+    # 13. Test Classified Signal Sniper Email Outreach Dispatch
+    from data.db import save_classified_signal
+    test_sig_id = save_classified_signal({
+        "cl_post_id": "test_cl_9999",
+        "category": "curb_alert",
+        "title": "Free couch on curb - Citrus Heights",
+        "url": "https://sacramento.craigslist.org/zip/test9999.html",
+        "location": "Citrus Heights",
+        "snippet": "Heavy sleeper sofa on curb. Needs gone today.",
+        "suggested_pitch": "Hey! I can swing by in my truck and clear that couch for $60 flat rate!"
+    })
+    res_sig_email = client.post(f"/api/crm/signals/{test_sig_id}/dispatch", json={
+        "method": "email",
+        "contact": "poster-relay@sale.craigslist.org",
+        "pitch": "Hey! I can swing by in my truck and clear that couch for $60 flat rate!",
+        "subject": "Go Fetch, Gizmo! - Curb Alert Hauling"
+    })
+    assert res_sig_email.status_code == 200
+    assert res_sig_email.json()["from"] == "gofetchgizmo@gmail.com"
+    assert res_sig_email.json()["new_status"] == "contacted"
+    print("   [OK] POST /api/crm/signals/{id}/dispatch (Email) -> Dispatched from gofetchgizmo@gmail.com")
+
+    # 14. Test Job Deletion Endpoint
     res_temp_job = client.post("/api/crm/jobs", json={
         "name": "Temp Test Job",
         "phone": "+19165559999",

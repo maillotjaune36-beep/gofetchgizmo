@@ -47,7 +47,7 @@ from engine.sms_handler import send_outbound_sms
 from engine.telegram_bot import notify_new_lead, send_telegram_message
 from engine.b2b_dispatcher import run_b2b_campaign, send_b2b_email
 from engine.b2b_copywriter import generate_b2b_pitch
-from engine.reviews import send_review_request
+from engine.reviews import send_review_request, send_review_email
 from config import SUPABASE_URL, SUPABASE_ANON_KEY
 
 app = FastAPI(title="Go Fetch Gizmo - Customer & CRM Pipeline")
@@ -314,10 +314,12 @@ async def list_reviews():
     return get_all_reviews()
 
 class ManualReviewRequest(BaseModel):
-    phone: str
+    phone: Optional[str] = None
+    email: Optional[str] = None
     name: Optional[str] = "Neighbor"
     job_id: Optional[int] = None
     customer_id: Optional[int] = None
+    review_url: Optional[str] = None
 
 @app.post("/api/crm/reviews/send")
 async def manual_send_review(payload: ManualReviewRequest, background_tasks: BackgroundTasks):
@@ -325,10 +327,20 @@ async def manual_send_review(payload: ManualReviewRequest, background_tasks: Bac
         "id": payload.job_id,
         "customer_id": payload.customer_id,
         "name": payload.name,
-        "phone": payload.phone
+        "phone": payload.phone,
+        "email": payload.email,
+        "review_url": payload.review_url
     }
-    background_tasks.add_task(send_review_request, job_data)
-    return {"status": "sent", "phone": payload.phone}
+    if payload.email:
+        background_tasks.add_task(send_review_email, job_data)
+    if payload.phone:
+        background_tasks.add_task(send_review_request, job_data)
+    return {
+        "status": "sent",
+        "phone": payload.phone,
+        "email": payload.email,
+        "from": "gofetchgizmo@gmail.com"
+    }
 
 @app.get("/api/crm/b2b")
 async def list_b2b():
@@ -367,17 +379,37 @@ class B2BSendOneRequest(BaseModel):
     prospect_id: int
     subject: str
     body: str
+    email: Optional[str] = None
 
 @app.post("/api/b2b/send-one")
 async def send_b2b_single(payload: B2BSendOneRequest):
     prospect = get_single_b2b_prospect(payload.prospect_id)
-    if not prospect:
+    target_email = payload.email or (prospect["email"] if prospect else "")
+    if not target_email and not prospect:
         return JSONResponse(status_code=404, content={"error": "Prospect not found"})
     
-    success = send_b2b_email(prospect["email"], payload.subject, payload.body)
-    if success:
+    success = send_b2b_email(target_email, payload.subject, payload.body)
+    if success and payload.prospect_id:
         update_b2b_prospect(payload.prospect_id, {"status": "emailed"})
-    return {"status": "sent" if success else "failed", "email": prospect["email"]}
+
+    # Send Telegram notification beam
+    try:
+        tele_msg = (
+            f"🚀 <b>B2B OUTREACH DISPATCHED!</b> 🐾\n\n"
+            f"✉️ <b>From:</b> <code>gofetchgizmo@gmail.com</code>\n"
+            f"🎯 <b>To:</b> <code>{target_email}</code>\n"
+            f"📋 <b>Subject:</b> {payload.subject}\n"
+            f"📍 <b>Status:</b> Pitched"
+        )
+        send_telegram_message(tele_msg)
+    except Exception:
+        pass
+
+    return {
+        "status": "sent" if success else "failed",
+        "email": target_email,
+        "from": "gofetchgizmo@gmail.com"
+    }
 
 class NewB2BProspect(BaseModel):
     company_name: str
@@ -443,11 +475,25 @@ async def dispatch_signal_endpoint(signal_id: int, payload: SignalDispatchReques
             send_b2b_email(payload.contact, payload.subject, payload.pitch)
         except Exception as e:
             print(f"[Signal Dispatch Error] Email send failed: {e}")
+
+    try:
+        tele_msg = (
+            f"🎯 <b>CLASSIFIED OUTREACH DISPATCHED!</b> 🐾\n\n"
+            f"👤 <b>Contact:</b> <code>{payload.contact or 'Direct'}</code>\n"
+            f"✉️ <b>From:</b> <code>gofetchgizmo@gmail.com</code>\n"
+            f"📱 <b>Method:</b> {payload.method.upper()}\n\n"
+            f"💬 <b>Pitch:</b>\n<code>{payload.pitch}</code>"
+        )
+        send_telegram_message(tele_msg)
+    except Exception:
+        pass
+
     return {
         "status": "dispatched",
         "id": signal_id,
         "method": payload.method,
         "contact": payload.contact,
+        "from": "gofetchgizmo@gmail.com",
         "new_status": "contacted"
     }
 

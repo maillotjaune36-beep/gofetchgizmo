@@ -14,19 +14,20 @@ from data.db import get_connection
 
 SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
-SMTP_USER = os.getenv("SMTP_USER", "")
+SMTP_USER = os.getenv("SMTP_USER", "gofetchgizmo@gmail.com") or "gofetchgizmo@gmail.com"
 SMTP_PASS = os.getenv("SMTP_PASS", "")
 SMTP_FROM_NAME = os.getenv("SMTP_FROM_NAME", "Brandon @ Go Fetch, Gizmo!")
 
 def send_b2b_email(to_email: str, subject: str, body: str) -> bool:
     """Send individual email via SMTP"""
-    if not SMTP_USER or not SMTP_PASS:
-        print(f"[Dispatcher Simulated] To: {to_email} | Subj: {subject}")
+    if not SMTP_PASS:
+        print(f"[Dispatcher Simulated] From: {SMTP_USER} | To: {to_email} | Subj: {subject}")
         return True
 
     msg = MIMEMultipart()
     msg["From"] = f"{SMTP_FROM_NAME} <{SMTP_USER}>"
     msg["To"] = to_email
+    msg["Reply-To"] = SMTP_USER
     msg["Subject"] = subject
     msg.attach(MIMEText(body, "plain"))
 

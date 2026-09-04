@@ -1074,7 +1074,7 @@ async function handleSendReview(request, env) {
         },
         body: JSON.stringify({
           customer_name: body.name || "Neighbor",
-          phone_number: body.phone || "",
+          phone_number: body.phone || body.email || "",
           status: "sent",
           rating: 5,
           sent_at: new Date().toISOString()
@@ -1093,14 +1093,18 @@ async function handleSendReview(request, env) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           chat_id: tg.chatId,
-          text: `⭐ <b>GOOGLE REVIEW REQUEST SENT!</b> 🐾\n👤 <b>Customer:</b> ${body.name || "Neighbor"}\n📞 <b>Phone:</b> <code>${body.phone || ""}</code>\n🥓 <i>Gizmo gets an extra bacon treat for every 5-star review!</i>`,
+          text: `⭐ <b>GOOGLE REVIEW REQUEST DISPATCHED!</b> 🐾\n` +
+            `👤 <b>Customer:</b> ${body.name || "Neighbor"}\n` +
+            `✉️ <b>From:</b> <code>gofetchgizmo@gmail.com</code>\n` +
+            `🎯 <b>Target:</b> <code>${body.email || body.phone || ""}</code>\n` +
+            `🥓 <i>Gizmo gets an extra bacon treat for every 5-star review!</i>`,
           parse_mode: "HTML"
         })
       });
     } catch (e) {}
   }
 
-  return jsonResponse({ status: "sent", name: body.name, phone: body.phone });
+  return jsonResponse({ status: "sent", name: body.name, phone: body.phone, email: body.email, from: "gofetchgizmo@gmail.com" });
 }
 
 async function handleGetB2B(env) {
@@ -1332,8 +1336,9 @@ async function handleSendSingleB2B(request, env) {
   const tg = getTelegramConfig(env);
   if (tg.isConfigured) {
     try {
-      const teleMsg = `🚀 <b>B2B PARTNERSHIP PITCH QUEUED!</b>\n\n` +
-        `✉️ <b>To:</b> <code>${email}</code>\n` +
+      const teleMsg = `🚀 <b>B2B PARTNERSHIP PITCH DISPATCHED!</b> 🐾\n\n` +
+        `✉️ <b>From:</b> <code>gofetchgizmo@gmail.com</code>\n` +
+        `🎯 <b>To:</b> <code>${email}</code>\n` +
         `📋 <b>Subject:</b> ${subject}\n` +
         `📍 <b>Status:</b> Pitched`;
       await fetch(`https://api.telegram.org/bot${tg.token}/sendMessage`, {
@@ -1352,6 +1357,7 @@ async function handleSendSingleB2B(request, env) {
     status: "sent",
     prospect_id: prospectId,
     email: email,
+    from: "gofetchgizmo@gmail.com",
     message: `Pitch dispatched for ${email}`
   });
 }
@@ -1783,9 +1789,10 @@ async function handleDispatchSignal(sigId, request, env) {
   if (tg.isConfigured) {
     const teleMsg = `🎯 <b>CLASSIFIED OUTREACH DISPATCHED!</b> 🐾\n\n` +
       `👤 <b>Lead Contact:</b> <code>${contact || 'Direct'}</code>\n` +
+      `✉️ <b>From:</b> <code>gofetchgizmo@gmail.com</code>\n` +
       `📱 <b>Method:</b> ${method.toUpperCase()}\n\n` +
       `💬 <b>Pitch:</b>\n<code>${pitch}</code>\n\n` +
-      `<i>Tap the number or message above on your phone to text immediately!</i>`;
+      `<i>Tap the contact or message above to respond immediately!</i>`;
 
     try {
       await fetch(`https://api.telegram.org/bot${tg.token}/sendMessage`, {
@@ -1805,6 +1812,7 @@ async function handleDispatchSignal(sigId, request, env) {
     id: sigId,
     method: method,
     contact: contact,
+    from: "gofetchgizmo@gmail.com",
     new_status: "contacted"
   });
 }
