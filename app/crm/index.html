@@ -163,7 +163,7 @@
                     <!-- Input composer -->
                     <form class="chat-composer" id="chatComposer">
                         <input type="text" class="composer-input" id="composerText" placeholder="Type SMS reply to customer..." required>
-                        <button type="submit" class="btn-send">Send SMS</button>
+                        <button type="submit" class="btn-send">📱 Send (Phone Link)</button>
                     </form>
                 </div>
             </div>
@@ -580,7 +580,7 @@
                 <div style="display:flex;gap:0.75rem;justify-content:flex-end;flex-wrap:wrap">
                     <button type="button" class="btn-card" onclick="closeModal('modalSendReview')">Cancel</button>
                     <button type="button" class="btn-card primary" id="btnSendReviewEmail" style="background:#2563EB;border-color:#2563EB">✉️ 1-Click Email (Gmail)</button>
-                    <button type="submit" class="btn-card green" id="btnSendReviewSMS">💬 Send SMS ⭐</button>
+                    <button type="submit" class="btn-card green" id="btnSendReviewSMS">📱 Send (Phone Link) ⭐</button>
                 </div>
             </form>
         </div>
@@ -747,10 +747,12 @@
             <div style="display:flex;gap:0.6rem;align-items:center;font-size:0.75rem;color:var(--text-muted);margin-top:-0.5rem;margin-bottom:1rem;flex-wrap:wrap">
                 <span>✉️ From: <strong style="color:var(--orange-light)">gofetchgizmo@gmail.com</strong></span>
                 <span>•</span>
-                <span>💻 SMS Hub:</span>
-                <a href="https://messages.google.com/web" target="_blank" style="color:var(--orange-light);text-decoration:none">Google Messages ↗</a>
+                <span>💻 SMS:</span>
+                <a href="javascript:void(0)" onclick="openPhoneLinkApp()" style="color:var(--orange-light);font-weight:600;text-decoration:none">Open Phone Link ↗</a>
                 <span>•</span>
-                <span style="color:var(--green)">📲 Telegram Beam Active</span>
+                <a href="https://messages.google.com/web" target="_blank" style="color:var(--text-muted);text-decoration:none">Google Messages Web ↗</a>
+                <span>•</span>
+                <span style="color:var(--green)">📲 Telegram Backup Active</span>
             </div>
 
             <!-- DIRECT DISPATCH ACTIONS -->
@@ -759,7 +761,7 @@
                 <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
                     <button type="button" class="btn-card" id="btnCopySignalPitch" title="Copy to clipboard">📋 Copy</button>
                     <button type="button" class="btn-card primary" id="btnSendSignalEmail" style="display:flex;align-items:center;gap:6px;background:#2563EB;border-color:#2563EB">✉️ 1-Click Email (Gmail)</button>
-                    <button type="button" class="btn-card primary" id="btnSendSignalSMS" style="display:flex;align-items:center;gap:6px;background:var(--orange-primary)">💬 1-Tap Text (SMS)</button>
+                    <button type="button" class="btn-card primary" id="btnSendSignalSMS" style="display:flex;align-items:center;gap:6px;background:var(--orange-primary)">📱 Send with Phone Link (SMS)</button>
                 </div>
             </div>
         </div>
@@ -770,6 +772,6 @@
 
     <!-- SUPABASE JS SDK & CRM SCRIPT -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="/crm.js?v=3.3"></script>
+    <script src="/crm.js?v=3.4"></script>
 </body>
 </html>

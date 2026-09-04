@@ -587,39 +587,54 @@ function createJobCard(job) {
 
 function openNativeSMS(phone, message) {
     if (!phone) return;
-    const cleanPhone = phone.replace(/\D/g, '');
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const cleanDigits = phone.replace(/\D/g, '');
+    if (!cleanDigits) return;
+
+    // Normalize for North American calling if 10 digits
+    const intlPhone = cleanDigits.length === 10 
+        ? `+1${cleanDigits}` 
+        : (cleanDigits.startsWith('1') && cleanDigits.length === 11 ? `+${cleanDigits}` : cleanDigits);
+
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     const separator = isIOS ? '&' : '?';
-    const smsUrl = `sms:${cleanPhone}${separator}body=${encodeURIComponent(message || '')}`;
+    const smsUrl = `sms:${intlPhone}${separator}body=${encodeURIComponent(message || '')}`;
 
-    // 1. Always copy text to clipboard as universal fallback
+    // 1. Universal fallback: copy message text to clipboard immediately
     if (navigator.clipboard) {
         navigator.clipboard.writeText(message || '').catch(() => {});
     }
 
-    // 2. On Mobile, launch native SMS
-    if (isMobile) {
-        const a = document.createElement('a');
-        a.href = smsUrl;
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(() => a.remove(), 400);
-        return;
-    }
+    // 2. Launch SMS protocol (Phone Link on Windows, Messages on iOS/Android)
+    const a = document.createElement('a');
+    a.href = smsUrl;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => a.remove(), 400);
 
-    // 3. On Desktop: Windows doesn't always have a default 'sms:' protocol handler
-    // Show Desktop SMS Hub prompt with 1-click options
-    showDesktopSMSPrompt(cleanPhone, message);
+    // 3. Desktop feedback
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (!isMobile) {
+        showToast(`📱 Opening Phone Link for ${intlPhone}... (Ctrl+V to paste message if needed)`, 'success');
+    }
+}
+
+function openPhoneLinkApp() {
+    const a = document.createElement('a');
+    a.href = 'ms-phone:';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => a.remove(), 400);
+    showToast('📱 Opening Windows Phone Link...', 'info');
 }
 
 function showDesktopSMSPrompt(phone, message) {
     const formattedPhone = phone.length === 10 ? `(${phone.slice(0,3)}) ${phone.slice(3,6)}-${phone.slice(6)}` : phone;
 
     showAlert({
-        title: 'Outreach Beamed to Your Phone! 📲',
-        message: `Your pitch for ${formattedPhone} was beamed directly to your Telegram bot and copied to your clipboard!\n\nOptions to send from PC:\n• Windows Phone Link: Search "Phone Link" on Windows\n• Google Messages Web: messages.google.com/web\n• Or open Telegram on your phone to tap & send instantly!`,
+        title: 'Phone Link Dispatcher 📱',
+        message: `Your message for ${formattedPhone} was copied to your clipboard and triggered in Windows Phone Link!\n\nIf Phone Link didn't appear:\n• Click "Open Phone Link" or press Windows Key & search "Phone Link"\n• Paste your message with Ctrl+V into the conversation\n• SMS is beamed through your linked phone!`,
         icon: '📱',
         type: 'info'
     });
@@ -928,6 +943,7 @@ function renderChatThread(thread) {
 
     const chatActions = document.getElementById('chatActions');
     chatActions.innerHTML = `
+        <button class="btn-card" style="padding:4px 10px;font-size:0.75rem" onclick="openNativeSMS('${thread.phone_number}', '')" title="Open thread in Windows Phone Link">📱 Phone Link</button>
         <a href="tel:${thread.phone_number}" class="btn-card" style="padding:4px 10px;font-size:0.75rem">📞 Call</a>
     `;
 
@@ -979,7 +995,6 @@ async function handleSendSMS(e) {
         });
         openNativeSMS(activeThreadPhone, text);
         input.value = '';
-        showToast('Opening Messages app... 💬', 'success');
         fetchInbox();
     } catch (e) {
         showToast('Failed to send SMS message.', 'error');
@@ -1003,9 +1018,10 @@ async function handleStartNewThread(e) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ phone: phone, body: body })
         });
+        openNativeSMS(phone, body);
         closeModal('modalNewThread');
         document.getElementById('formNewThread').reset();
-        showToast(`SMS sent to ${phone}! 🐾`, 'success');
+        showToast(`Opening Phone Link for ${phone}! 🐾`, 'success');
         startChatWithCustomer(phone);
     } catch (e) {
         showAlert({ title: 'Failed to Send', message: 'Could not send initial SMS message.', icon: '⚠️', type: 'error' });
@@ -1673,13 +1689,13 @@ async function directSendSignalSMS(sigId, phone, customPitch) {
     if (signal) signal.status = 'contacted';
     renderSignalsTable(cachedSignals);
 
-    // 2. Launch 1-tap native SMS (mobile) or desktop hub
+    // 2. Launch 1-tap native SMS (mobile) or Phone Link (desktop)
     openNativeSMS(phone, pitch);
 
     if (isMobile) {
         showToast(`1-Tap SMS opened for ${phone}! Signal marked as Contacted 🐾`, 'success');
     } else {
-        showToast(`📲 Beamed to Telegram & copied to clipboard! Marked as Contacted 🐾`, 'success');
+        showToast(`📱 Opening Phone Link for ${phone}! Marked as Contacted 🐾`, 'success');
     }
 }
 
@@ -1847,3 +1863,9 @@ function openPhotoViewer(url) {
     if (img) img.src = url;
     openModal('modalPhotoViewer');
 }
+
+// Global window exports for inline HTML onclick handlers
+window.openNativeSMS = openNativeSMS;
+window.openPhoneLinkApp = openPhoneLinkApp;
+window.showDesktopSMSPrompt = showDesktopSMSPrompt;
+
