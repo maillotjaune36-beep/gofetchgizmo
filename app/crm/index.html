@@ -574,8 +574,17 @@
                     <label class="form-label">Customer Email (for 1-Click Gmail)</label>
                     <input type="email" class="composer-input" id="srEmail" placeholder="e.g. client@gmail.com">
                 </div>
-                <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-bottom:1.25rem;font-size:0.8rem;color:var(--text-muted);display:flex;align-items:center;gap:6px">
+                <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-bottom:1.25rem;font-size:0.8rem;color:var(--text-muted);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
                     <span>✉️ Sender: <strong style="color:var(--orange-light)">gofetchgizmo@gmail.com</strong></span>
+                    <span>•</span>
+                    <span>📞 Voice Acct:</span>
+                    <select class="gv-account-select" onchange="setGoogleVoiceAccount(this.value)" style="background:rgba(255,255,255,0.08);border:1px solid var(--border);color:var(--orange-light);border-radius:4px;padding:2px 6px;font-size:0.75rem;cursor:pointer" title="Select Google Account">
+                        <option value="1">Account 1 (gofetchgizmo@gmail.com)</option>
+                        <option value="gofetchgizmo@gmail.com">By Email (gofetchgizmo@gmail.com)</option>
+                        <option value="2">Account 2</option>
+                        <option value="3">Account 3</option>
+                        <option value="0">Account 0 (Primary)</option>
+                    </select>
                 </div>
                 <div style="display:flex;gap:0.75rem;justify-content:flex-end;flex-wrap:wrap">
                     <button type="button" class="btn-card" onclick="closeModal('modalSendReview')">Cancel</button>
@@ -747,8 +756,15 @@
             <div style="display:flex;gap:0.6rem;align-items:center;font-size:0.75rem;color:var(--text-muted);margin-top:-0.5rem;margin-bottom:1rem;flex-wrap:wrap">
                 <span>✉️ From: <strong style="color:var(--orange-light)">gofetchgizmo@gmail.com</strong></span>
                 <span>•</span>
-                <span>📞 Business SMS:</span>
-                <a href="https://voice.google.com/u/0/messages" target="_blank" style="color:var(--orange-light);font-weight:600;text-decoration:none">Google Voice Web ↗</a>
+                <span>📞 Google Voice:</span>
+                <select class="gv-account-select" onchange="setGoogleVoiceAccount(this.value)" style="background:rgba(255,255,255,0.08);border:1px solid var(--border);color:var(--orange-light);border-radius:4px;padding:2px 6px;font-size:0.75rem;cursor:pointer" title="Select Google Account for Google Voice">
+                    <option value="1">Account 1 (gofetchgizmo@gmail.com)</option>
+                    <option value="gofetchgizmo@gmail.com">By Email (gofetchgizmo@gmail.com)</option>
+                    <option value="2">Account 2</option>
+                    <option value="3">Account 3</option>
+                    <option value="0">Account 0 (Primary)</option>
+                </select>
+                <a href="javascript:void(0)" onclick="openGoogleVoiceApp()" style="color:var(--orange-light);font-weight:600;text-decoration:none">Open Web ↗</a>
                 <span>•</span>
                 <span style="color:var(--green)">📲 Telegram Backup Active</span>
             </div>
@@ -770,6 +786,6 @@
 
     <!-- SUPABASE JS SDK & CRM SCRIPT -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="/crm.js?v=3.5"></script>
+    <script src="/crm.js?v=3.6"></script>
 </body>
 </html>

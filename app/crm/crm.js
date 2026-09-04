@@ -585,13 +585,51 @@ function createJobCard(job) {
     return el;
 }
 
+const GIZMO_DEFAULT_GV_ACCOUNT = '1'; // Default to Account 1 (secondary / business account)
+
+function getGoogleVoiceAccount() {
+    return localStorage.getItem('gizmo_gv_account') || GIZMO_DEFAULT_GV_ACCOUNT;
+}
+
+function setGoogleVoiceAccount(account) {
+    localStorage.setItem('gizmo_gv_account', account);
+    document.querySelectorAll('.gv-account-select').forEach(sel => {
+        sel.value = account;
+    });
+    showToast(`Google Voice routed to: ${getGVAccountLabel(account)}`, 'info');
+}
+
+function getGVAccountLabel(acc) {
+    if (acc === '1') return 'Account 1 (gofetchgizmo@gmail.com)';
+    if (acc === '0') return 'Account 0 (Primary Personal)';
+    if (acc === '2') return 'Account 2';
+    if (acc === '3') return 'Account 3';
+    return acc;
+}
+
+function getGoogleVoiceUrl(phone) {
+    const acc = getGoogleVoiceAccount();
+    const cleanDigits = (phone || '').replace(/\D/g, '');
+    const intlDigits = cleanDigits.length === 10 ? `1${cleanDigits}` : cleanDigits;
+
+    // If account is numeric (e.g. "1", "0", "2"), route to /u/{index}/messages
+    // If account is an email address, route to /messages?authuser={email}
+    if (/^\d+$/.test(acc)) {
+        return cleanDigits 
+            ? `https://voice.google.com/u/${acc}/messages?itemId=t.%2B${intlDigits}`
+            : `https://voice.google.com/u/${acc}/messages`;
+    } else {
+        return cleanDigits 
+            ? `https://voice.google.com/messages?authuser=${encodeURIComponent(acc)}&itemId=t.%2B${intlDigits}`
+            : `https://voice.google.com/messages?authuser=${encodeURIComponent(acc)}`;
+    }
+}
+
 function openGoogleVoiceSMS(phone, message) {
     if (!phone) return;
     const cleanDigits = phone.replace(/\D/g, '');
     if (!cleanDigits) return;
 
-    // Normalize for North American calling (e.g. 19165550199)
-    const intlDigits = cleanDigits.length === 10 ? `1${cleanDigits}` : cleanDigits;
     const formattedPhone = cleanDigits.length === 10 
         ? `(${cleanDigits.slice(0,3)}) ${cleanDigits.slice(3,6)}-${cleanDigits.slice(6)}` 
         : phone;
@@ -601,9 +639,8 @@ function openGoogleVoiceSMS(phone, message) {
         navigator.clipboard.writeText(message).catch(() => {});
     }
 
-    // 2. Open Google Voice directly to recipient's conversation thread
-    // Google Voice deep-link format: https://voice.google.com/u/0/messages?itemId=t.%2B19165550199
-    const gvUrl = `https://voice.google.com/u/0/messages?itemId=t.%2B${intlDigits}`;
+    // 2. Open Google Voice directly with the user's selected business account context
+    const gvUrl = getGoogleVoiceUrl(cleanDigits);
     
     // Open in a new tab/window
     const win = window.open(gvUrl, '_blank');
@@ -611,11 +648,12 @@ function openGoogleVoiceSMS(phone, message) {
         window.location.href = gvUrl;
     }
 
-    // 3. User feedback toast
+    // 3. User feedback toast with account indicator
+    const accLabel = getGVAccountLabel(getGoogleVoiceAccount());
     if (message) {
-        showToast(`📞 Pitch copied! Opening Google Voice for ${formattedPhone}... (Ctrl+V to paste & send)`, 'success');
+        showToast(`📞 Pitch copied! Opening Google Voice (${accLabel})... Press Ctrl+V to send!`, 'success');
     } else {
-        showToast(`📞 Opening Google Voice for ${formattedPhone}...`, 'info');
+        showToast(`📞 Opening Google Voice (${accLabel}) for ${formattedPhone}...`, 'info');
     }
 }
 
@@ -625,7 +663,7 @@ function openNativeSMS(phone, message) {
 }
 
 function openGoogleVoiceApp() {
-    window.open('https://voice.google.com/u/0/messages', '_blank');
+    window.open(getGoogleVoiceUrl(), '_blank');
 }
 
 function openPhoneLinkApp() {
@@ -950,9 +988,17 @@ function renderChatThread(thread) {
     document.getElementById('chatActiveContact').innerText = `${custName} (${thread.phone_number})`;
     document.getElementById('chatActivePhone').innerText = `Location: ${thread.customer ? thread.customer.zip_code || thread.customer.address : 'Citrus Heights / Sacramento'}`;
 
+    const currentAcc = getGoogleVoiceAccount();
     const chatActions = document.getElementById('chatActions');
     chatActions.innerHTML = `
         <button class="btn-card" style="padding:4px 10px;font-size:0.75rem" onclick="openGoogleVoiceSMS('${thread.phone_number}', '')" title="Open thread in Google Voice">📞 Google Voice</button>
+        <select class="gv-account-select" onchange="setGoogleVoiceAccount(this.value)" style="background:rgba(255,255,255,0.08);border:1px solid var(--border);color:var(--orange-light);border-radius:4px;padding:3px 6px;font-size:0.75rem;cursor:pointer" title="Switch Google Account for Google Voice">
+            <option value="1" ${currentAcc === '1' ? 'selected' : ''}>Acct 1 (gofetchgizmo)</option>
+            <option value="gofetchgizmo@gmail.com" ${currentAcc === 'gofetchgizmo@gmail.com' ? 'selected' : ''}>By Email (gofetchgizmo@gmail.com)</option>
+            <option value="2" ${currentAcc === '2' ? 'selected' : ''}>Acct 2</option>
+            <option value="3" ${currentAcc === '3' ? 'selected' : ''}>Acct 3</option>
+            <option value="0" ${currentAcc === '0' ? 'selected' : ''}>Acct 0 (Primary)</option>
+        </select>
         <a href="tel:${thread.phone_number}" class="btn-card" style="padding:4px 10px;font-size:0.75rem">📞 Call</a>
     `;
 
@@ -1869,6 +1915,9 @@ function openPhotoViewer(url) {
 }
 
 // Global window exports for inline HTML onclick handlers
+window.getGoogleVoiceAccount = getGoogleVoiceAccount;
+window.setGoogleVoiceAccount = setGoogleVoiceAccount;
+window.getGoogleVoiceUrl = getGoogleVoiceUrl;
 window.openGoogleVoiceSMS = openGoogleVoiceSMS;
 window.openGoogleVoiceApp = openGoogleVoiceApp;
 window.openNativeSMS = openNativeSMS;
