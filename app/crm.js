@@ -585,38 +585,47 @@ function createJobCard(job) {
     return el;
 }
 
-function openNativeSMS(phone, message) {
+function openGoogleVoiceSMS(phone, message) {
     if (!phone) return;
     const cleanDigits = phone.replace(/\D/g, '');
     if (!cleanDigits) return;
 
-    // Normalize for North American calling if 10 digits
-    const intlPhone = cleanDigits.length === 10 
-        ? `+1${cleanDigits}` 
-        : (cleanDigits.startsWith('1') && cleanDigits.length === 11 ? `+${cleanDigits}` : cleanDigits);
+    // Normalize for North American calling (e.g. 19165550199)
+    const intlDigits = cleanDigits.length === 10 ? `1${cleanDigits}` : cleanDigits;
+    const formattedPhone = cleanDigits.length === 10 
+        ? `(${cleanDigits.slice(0,3)}) ${cleanDigits.slice(3,6)}-${cleanDigits.slice(6)}` 
+        : phone;
 
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    const separator = isIOS ? '&' : '?';
-    const smsUrl = `sms:${intlPhone}${separator}body=${encodeURIComponent(message || '')}`;
-
-    // 1. Universal fallback: copy message text to clipboard immediately
-    if (navigator.clipboard) {
-        navigator.clipboard.writeText(message || '').catch(() => {});
+    // 1. Universal clipboard copy: Pitch/message copied so user can instantly paste (Ctrl+V) into Google Voice
+    if (message && navigator.clipboard) {
+        navigator.clipboard.writeText(message).catch(() => {});
     }
 
-    // 2. Launch SMS protocol (Phone Link on Windows, Messages on iOS/Android)
-    const a = document.createElement('a');
-    a.href = smsUrl;
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => a.remove(), 400);
-
-    // 3. Desktop feedback
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    if (!isMobile) {
-        showToast(`📱 Opening Phone Link for ${intlPhone}... (Ctrl+V to paste message if needed)`, 'success');
+    // 2. Open Google Voice directly to recipient's conversation thread
+    // Google Voice deep-link format: https://voice.google.com/u/0/messages?itemId=t.%2B19165550199
+    const gvUrl = `https://voice.google.com/u/0/messages?itemId=t.%2B${intlDigits}`;
+    
+    // Open in a new tab/window
+    const win = window.open(gvUrl, '_blank');
+    if (!win || win.closed || typeof win.closed === 'undefined') {
+        window.location.href = gvUrl;
     }
+
+    // 3. User feedback toast
+    if (message) {
+        showToast(`📞 Pitch copied! Opening Google Voice for ${formattedPhone}... (Ctrl+V to paste & send)`, 'success');
+    } else {
+        showToast(`📞 Opening Google Voice for ${formattedPhone}...`, 'info');
+    }
+}
+
+// Default openNativeSMS to Google Voice so all existing CRM dispatch actions use Google Voice
+function openNativeSMS(phone, message) {
+    return openGoogleVoiceSMS(phone, message);
+}
+
+function openGoogleVoiceApp() {
+    window.open('https://voice.google.com/u/0/messages', '_blank');
 }
 
 function openPhoneLinkApp() {
@@ -709,10 +718,10 @@ async function sendEnRouteSMS(jobId, phone, name) {
             body: JSON.stringify({ phone, name: custName })
         });
 
-        // 3. Trigger 1-Tap Native SMS
-        openNativeSMS(phone, textMsg);
+        // 3. Trigger 1-Tap Google Voice SMS
+        openGoogleVoiceSMS(phone, textMsg);
 
-        showToast(`🚚 Opened Messages app for ${phone}!`, 'success');
+        showToast(`🚚 Opened Google Voice for ${phone}!`, 'success');
         await loadDashboard();
     } catch (e) {
         showToast("Error dispatching en-route", "error");
@@ -863,7 +872,7 @@ async function handleConfirmComplete(e) {
 
         const sendReview = await showConfirm({
             title: 'Job Completed! 🎉',
-            message: `Revenue logged ($${finalPrice})! Open your Messages app with the 5-Star Google Review text pre-filled for ${custName} (${custPhone})?`,
+            message: `Revenue logged ($${finalPrice})! Open Google Voice with the 5-Star Google Review text pre-filled for ${custName} (${custPhone})?`,
             icon: '🐕',
             confirmText: 'Send Review Text ⭐',
             cancelText: 'Done'
@@ -943,7 +952,7 @@ function renderChatThread(thread) {
 
     const chatActions = document.getElementById('chatActions');
     chatActions.innerHTML = `
-        <button class="btn-card" style="padding:4px 10px;font-size:0.75rem" onclick="openNativeSMS('${thread.phone_number}', '')" title="Open thread in Windows Phone Link">📱 Phone Link</button>
+        <button class="btn-card" style="padding:4px 10px;font-size:0.75rem" onclick="openGoogleVoiceSMS('${thread.phone_number}', '')" title="Open thread in Google Voice">📞 Google Voice</button>
         <a href="tel:${thread.phone_number}" class="btn-card" style="padding:4px 10px;font-size:0.75rem">📞 Call</a>
     `;
 
@@ -1018,10 +1027,10 @@ async function handleStartNewThread(e) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ phone: phone, body: body })
         });
-        openNativeSMS(phone, body);
+        openGoogleVoiceSMS(phone, body);
         closeModal('modalNewThread');
         document.getElementById('formNewThread').reset();
-        showToast(`Opening Phone Link for ${phone}! 🐾`, 'success');
+        showToast(`Opening Google Voice for ${phone}! 🐾`, 'success');
         startChatWithCustomer(phone);
     } catch (e) {
         showAlert({ title: 'Failed to Send', message: 'Could not send initial SMS message.', icon: '⚠️', type: 'error' });
@@ -1305,8 +1314,8 @@ async function handleSendManualReview(e) {
         
         if (phone) {
             const reviewMsg = `Hey ${name.split(' ')[0] || 'Neighbor'}! Brandon here from Go Fetch, Gizmo! 🐾 Hope you're loving all that cleared-out space! If you have 15 seconds, could you drop Gizmo a quick 5-star Google review? ⭐⭐⭐⭐⭐ ${reviewUrl} (Gizmo gets an extra bacon treat for every 5-star review! 🐶🥓) Thanks again!`;
-            openNativeSMS(phone, reviewMsg);
-            showToast(`Messages app opened with 5-Star review text for ${name}! ⭐`, 'success');
+            openGoogleVoiceSMS(phone, reviewMsg);
+            showToast(`Google Voice opened with 5-Star review text for ${name}! ⭐`, 'success');
         }
 
         if (email) {
@@ -1689,14 +1698,9 @@ async function directSendSignalSMS(sigId, phone, customPitch) {
     if (signal) signal.status = 'contacted';
     renderSignalsTable(cachedSignals);
 
-    // 2. Launch 1-tap native SMS (mobile) or Phone Link (desktop)
-    openNativeSMS(phone, pitch);
-
-    if (isMobile) {
-        showToast(`1-Tap SMS opened for ${phone}! Signal marked as Contacted 🐾`, 'success');
-    } else {
-        showToast(`📱 Opening Phone Link for ${phone}! Marked as Contacted 🐾`, 'success');
-    }
+    // 2. Launch Google Voice Web Deep Launcher
+    openGoogleVoiceSMS(phone, pitch);
+    showToast(`📞 Opening Google Voice for ${phone}! Marked as Contacted 🐾`, 'success');
 }
 
 async function directSendSignalEmail(sigId, email, customPitch) {
@@ -1865,6 +1869,8 @@ function openPhotoViewer(url) {
 }
 
 // Global window exports for inline HTML onclick handlers
+window.openGoogleVoiceSMS = openGoogleVoiceSMS;
+window.openGoogleVoiceApp = openGoogleVoiceApp;
 window.openNativeSMS = openNativeSMS;
 window.openPhoneLinkApp = openPhoneLinkApp;
 window.showDesktopSMSPrompt = showDesktopSMSPrompt;
