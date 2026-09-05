@@ -639,21 +639,22 @@ function openGoogleVoiceSMS(phone, message) {
         navigator.clipboard.writeText(message).catch(() => {});
     }
 
-    // 2. Open Google Voice directly with the user's selected business account context
+    // 2. Open Google Voice directly in a dedicated standalone app window (reusing the same instance)
     const gvUrl = getGoogleVoiceUrl(cleanDigits);
-    
-    // Open in a new tab/window
-    const win = window.open(gvUrl, '_blank');
-    if (!win || win.closed || typeof win.closed === 'undefined') {
+    const winFeatures = 'width=1120,height=820,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes';
+    const win = window.open(gvUrl, 'GoogleVoiceAppWindow', winFeatures);
+    if (win) {
+        win.focus();
+    } else {
         window.location.href = gvUrl;
     }
 
     // 3. User feedback toast with account indicator
     const accLabel = getGVAccountLabel(getGoogleVoiceAccount());
     if (message) {
-        showToast(`📞 Pitch copied! Opening Google Voice (${accLabel})... Press Ctrl+V to send!`, 'success');
+        showToast(`📞 Pitch copied! Opening Google Voice App (${accLabel})... Press Ctrl+V to send!`, 'success');
     } else {
-        showToast(`📞 Opening Google Voice (${accLabel}) for ${formattedPhone}...`, 'info');
+        showToast(`📞 Opening Google Voice App (${accLabel}) for ${formattedPhone}...`, 'info');
     }
 }
 
@@ -663,7 +664,9 @@ function openNativeSMS(phone, message) {
 }
 
 function openGoogleVoiceApp() {
-    window.open(getGoogleVoiceUrl(), '_blank');
+    const winFeatures = 'width=1120,height=820,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes';
+    const win = window.open(getGoogleVoiceUrl(), 'GoogleVoiceAppWindow', winFeatures);
+    if (win) win.focus();
 }
 
 function openPhoneLinkApp() {
