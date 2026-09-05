@@ -639,15 +639,16 @@ function openGoogleVoiceSMS(phone, message) {
         navigator.clipboard.writeText(message).catch(() => {});
     }
 
-    // 2. Open Google Voice directly in a dedicated standalone app window (reusing the same instance)
+    // 2. Trigger standard anchor navigation to allow Chrome PWA Link Capturing to route into the installed app
     const gvUrl = getGoogleVoiceUrl(cleanDigits);
-    const winFeatures = 'width=1120,height=820,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes';
-    const win = window.open(gvUrl, 'GoogleVoiceAppWindow', winFeatures);
-    if (win) {
-        win.focus();
-    } else {
-        window.location.href = gvUrl;
-    }
+    const a = document.createElement('a');
+    a.href = gvUrl;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => a.remove(), 400);
 
     // 3. User feedback toast with account indicator
     const accLabel = getGVAccountLabel(getGoogleVoiceAccount());
@@ -664,9 +665,14 @@ function openNativeSMS(phone, message) {
 }
 
 function openGoogleVoiceApp() {
-    const winFeatures = 'width=1120,height=820,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes';
-    const win = window.open(getGoogleVoiceUrl(), 'GoogleVoiceAppWindow', winFeatures);
-    if (win) win.focus();
+    const a = document.createElement('a');
+    a.href = getGoogleVoiceUrl();
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => a.remove(), 400);
 }
 
 function openPhoneLinkApp() {
